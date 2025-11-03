@@ -57,7 +57,8 @@ class GoogleDriveProcessor:
         self,
         service_account_json: str,
         s3_uploader: S3Uploader,
-        output_dir: str
+        output_dir: str,
+        skip_existing: bool = False
     ):
         self.creds = service_account.Credentials.from_service_account_info(
             json.loads(service_account_json),
@@ -80,6 +81,7 @@ class GoogleDriveProcessor:
         self.output_dir = output_dir
         os.makedirs(self.output_dir, exist_ok=True)
         self.s3_uploader = s3_uploader
+        self.skip_existing = skip_existing
 
         # Global timestamp tracking across all videos
         self.global_timestamp_seconds = 0
@@ -343,6 +345,7 @@ class GoogleDriveProcessor:
                         source_url=sanitized_source_url,
                         parent_folder_name=parent_folder_name,
                         parent_folder_url=parent_folder_url,
+                        skip_if_exists=self.skip_existing,
                     )
                     if upload_success:
                         logger.debug(
@@ -394,6 +397,7 @@ class GoogleDriveProcessor:
                 source_url=sanitized_source_url,
                 parent_folder_name=parent_folder_name,
                 parent_folder_url=parent_folder_url,
+                skip_if_exists=self.skip_existing,
             )
             if upload_success:
                 logger.debug(f"S3 upload successful for {name}. Removing local file.")
@@ -532,6 +536,7 @@ class GoogleDriveProcessor:
                     parent_folder_name=parent_folder_name,
                     parent_folder_url=parent_folder_url,
                     relative_start_time=0,  # Always include, even if zero
+                    skip_if_exists=self.skip_existing,
                 )
 
                 if success:
@@ -571,6 +576,7 @@ class GoogleDriveProcessor:
                         parent_folder_name=parent_folder_name,
                         parent_folder_url=parent_folder_url,
                         relative_start_time=int(chunk["relative_time"]),
+                        skip_if_exists=self.skip_existing,
                     )
 
                     if chunk_success:
@@ -736,6 +742,12 @@ def main():
     s3_bucket_name = config["s3_bucket_name"]
     aws_region = config.get("aws_region", "us-west-2")
     download_dir = config.get("google_drive_download_dir", "google_drive_downloads")
+    skip_existing = config.get("skip_existing_s3_files", False)
+
+    if skip_existing:
+        logger.info("Skip existing S3 files is ENABLED - will not re-upload existing files")
+    else:
+        logger.info("Skip existing S3 files is DISABLED - will overwrite existing files")
 
     service_account_json_path = env_vars.get("GOOGLE_DRIVE_CREDENTIALS")
     logger.debug(
@@ -758,7 +770,7 @@ def main():
 
     s3_uploader = S3Uploader(bucket_name=s3_bucket_name, region_name=aws_region)
     drive_processor = GoogleDriveProcessor(
-        service_account_json_content_string, s3_uploader, download_dir
+        service_account_json_content_string, s3_uploader, download_dir, skip_existing
     )
 
     # Read URLs from long_video.csv

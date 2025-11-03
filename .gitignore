@@ -10,3 +10,10 @@ __pycache__
 cdk.out
 
 config.yaml
+
+# Ignore service account credentials and environment variable files
+**/service-credentials.json
+**/names.env
+
+# Ignore Claude AI files
+.claude

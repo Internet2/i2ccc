@@ -55,21 +55,45 @@ def main():
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
-    confluence_url = config["confluence_url"]
+    confluence_urls = config.get("confluence_urls", [])
+
+    # Backward compatibility: if confluence_url exists, use it
+    if not confluence_urls and "confluence_url" in config:
+        confluence_urls = [config["confluence_url"]]
+
+    if not confluence_urls:
+        print("No Confluence URLs found in config. Please add confluence_urls to config.yaml")
+        return
+
     s3_bucket_name = config["s3_bucket_name"]
     aws_region = config.get("aws_region", "us-west-2")
     s3_subfolder = config.get("s3_subfolder", "").strip()
+    skip_existing = config.get("skip_existing_s3_files", False)
+
+    if skip_existing:
+        print("Skip existing S3 files is ENABLED - will not re-upload existing files")
+    else:
+        print("Skip existing S3 files is DISABLED - will overwrite existing files")
 
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-    scraper = ConfluenceScraper(base_url=confluence_url)
     uploader = S3Uploader(bucket_name=s3_bucket_name, region_name=aws_region)
 
-    print(f"Scraping assets from: {confluence_url}")
-    all_assets = scraper.scrape_assets()
+    # Scrape assets from all Confluence URLs
+    all_assets = []
+    for confluence_url in confluence_urls:
+        print(f"\nScraping assets from: {confluence_url}")
+        scraper = ConfluenceScraper(base_url=confluence_url)
+        assets = scraper.scrape_assets()
+
+        if assets:
+            print(f"Found {len(assets)} assets from {confluence_url}")
+            all_assets.extend(assets)
+        else:
+            print(f"No assets found from {confluence_url}")
 
     if not all_assets:
-        print("No assets found or error during scraping. Exiting.")
+        print("\nNo assets found from any Confluence URL. Exiting.")
         return
 
     # Sanitize all Google Drive links before saving to CSV
@@ -78,10 +102,10 @@ def main():
             asset["url"] = _sanitize_drive_file_url(asset["url"])
 
     # Save all extracted links to a CSV file
-    print(f"Saving extracted asset links to {ASSET_LINKS_CSV}")
+    print(f"\nSaving extracted asset links to {ASSET_LINKS_CSV}")
     df_links = pd.DataFrame(all_assets)
     df_links.to_csv(ASSET_LINKS_CSV, index=False)
-    print(f"Found {len(all_assets)} asset links.")
+    print(f"Total assets found from all Confluence URLs: {len(all_assets)}")
 
     # Process and upload files based on rules
     for asset in all_assets:
@@ -111,7 +135,7 @@ def main():
             else:
                 s3_object_key = file_name
             uploader.upload_file(
-                downloaded_file_path, s3_object_key, is_subscriber_content
+                downloaded_file_path, s3_object_key, is_subscriber_content, skip_if_exists=skip_existing
             )
             os.remove(downloaded_file_path)  # Clean up local file after upload
 
