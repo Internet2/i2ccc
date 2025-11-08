@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-background: #f8fafc;
+    --color-surface: #ffffff;
+    --color-surface-muted: #f1f5f9;
+    --color-highlight: #2563eb;
+    --color-highlight-soft: rgba(37, 99, 235, 0.8);
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted: #94a3b8;
+    --color-border: #e2e8f0;
+    --color-border-soft: rgba(226, 232, 240, 0.6);
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-destructive: #d83b26;
+    --color-destructive-soft: #f05a45;
+    --color-destructive-tint: rgba(216, 59, 38, 0.15);
+  }
+
+  .dark {
+    --color-background: #0f172a;
+    --color-surface: #1e293b;
+    --color-surface-muted: #27364d;
+    --color-highlight: #2563eb;
+    --color-highlight-soft: rgba(29, 78, 216, 0.8);
+    --color-text-primary: #f8fafc;
+    --color-text-secondary: #cbd5f5;
+    --color-text-muted: #94a3b8;
+    --color-border: #334155;
+    --color-border-soft: rgba(31, 41, 55, 0.6);
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-destructive: #f05a45;
+    --color-destructive-soft: #ff6b5a;
+    --color-destructive-tint: rgba(240, 90, 69, 0.22);
+  }
+
+  html {
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  }
+  
+  body {
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+  }
+}
+
+@layer components {
+  /* Custom components */
+  .message-bubble-user {
+    background-image: linear-gradient(to right, #3b82f6, #2563eb);
+    color: #ffffff;
+  }
+  
+  .message-bubble-bot {
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  }
+
+  .btn-primary {
+    background-color: var(--color-highlight);
+    color: #fff;
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-highlight-soft);
+  }
+
+  .btn-secondary {
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-primary);
+    transition: background-color 0.2s ease;
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-surface);
+  }
+
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .theme-toggle:hover {
+    border-color: var(--color-highlight);
+    color: var(--color-highlight);
+  }
+
+  .theme-toggle:focus-visible {
+    outline: 2px solid var(--color-highlight);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  /* Global border radius adjustments for rounder boxes */
+  .rounded-lg {
+    border-radius: 1rem; /* Default is 0.5rem, this is 2x rounder */
+  }
+  
+  .rounded-md {
+    border-radius: 0.75rem; /* Default is 0.375rem, this is 2x rounder */
+  }
+  
+  .rounded {
+    border-radius: 0.5rem; /* Default is 0.25rem, this is 2x rounder */
+  }
+
+  /* Custom scrollbar styles - clean look with no track */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.6);
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  }
+
+  .dark * {
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+  }
+
+  @keyframes chatbot-bubble-enter {
+    0% {
+      opacity: 0;
+      transform: translateX(-16px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-chatbot-bubble-enter {
+    animation: chatbot-bubble-enter 300ms ease-out both;
+  }
+}

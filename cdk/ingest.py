@@ -6,6 +6,7 @@ from aws_cdk import (
     Duration,
     Fn,
     RemovalPolicy,
+    Size,
     Stack,
 )
 from aws_cdk import (
@@ -403,6 +404,92 @@ class RagIngest(Construct):
             iam.PolicyStatement(actions=["aoss:APIAccessAll"], resources=["*"])
         )
 
+        # Create file size checker Lambda
+        check_file_size_lambda = lambda_.Function(
+            self,
+            "CheckFileSizeLambda",
+            runtime=lambda_.Runtime.PYTHON_3_13,
+            handler="check_file_size.lambda_handler",
+            code=lambda_.Code.from_asset("src/ingest/video_chunker"),
+            timeout=Duration.minutes(1),
+            memory_size=256,
+        )
+        # Grant minimal permissions: get object metadata to check size
+        check_file_size_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:GetObject",           # Read object and metadata
+                    "s3:GetBucketLocation",   # Required for S3 operations
+                ],
+                resources=[
+                    input_assets_bucket.bucket_arn,       # Bucket itself
+                    f"{input_assets_bucket.bucket_arn}/*",  # Objects in bucket
+                ],
+            )
+        )
+
+        # Create video chunking Lambda (Docker image with FFmpeg)
+        chunk_video_lambda = lambda_.DockerImageFunction(
+            self,
+            "ChunkVideoLambda",
+            code=lambda_.DockerImageCode.from_image_asset(
+                directory="src/ingest/video_chunker",
+                asset_name="video-chunker-service",
+                platform=ecr_assets.Platform.LINUX_AMD64,
+            ),
+            memory_size=10240,  # 10GB memory for large video processing
+            timeout=Duration.minutes(15),
+            ephemeral_storage_size=Size.mebibytes(10240),  # 10GB ephemeral storage for /tmp
+            allow_public_subnet=True,
+            log_retention=logs.RetentionDays.ONE_WEEK,
+        )
+        # Grant minimal permissions: get, put, and delete objects only
+        chunk_video_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:GetObject",           # Download original video
+                    "s3:PutObject",           # Upload chunks
+                    "s3:DeleteObject",        # Delete original after chunking
+                    "s3:GetBucketLocation",   # Required for S3 operations
+                ],
+                resources=[
+                    input_assets_bucket.bucket_arn,       # Bucket itself
+                    f"{input_assets_bucket.bucket_arn}/*",  # Objects in bucket
+                ],
+            )
+        )
+
+        # Create quarantine Lambda for failed files
+        quarantine_lambda = lambda_.Function(
+            self,
+            "QuarantineFailedFileLambda",
+            runtime=lambda_.Runtime.PYTHON_3_13,
+            handler="quarantine_failed_file.lambda_handler",
+            code=lambda_.Code.from_asset("src/ingest/video_chunker"),
+            timeout=Duration.minutes(1),
+            memory_size=256,
+            environment={
+                "PROCESSED_FILES_TABLE": processed_files_table.table_name,
+            },
+        )
+        # Grant permissions to copy and delete objects for quarantine
+        quarantine_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=[
+                    "s3:GetObject",           # Read original file metadata
+                    "s3:PutObject",           # Copy to quarantine location
+                    "s3:DeleteObject",        # Delete original after copy
+                    "s3:GetBucketLocation",   # Required for S3 operations
+                ],
+                resources=[
+                    input_assets_bucket.bucket_arn,       # Bucket itself
+                    f"{input_assets_bucket.bucket_arn}/*",  # Objects in bucket
+                ],
+            )
+        )
+        # Grant DynamoDB permissions to mark files as quarantined
+        processed_files_table.grant_read_write_data(quarantine_lambda)
+
         video_task_definition = ecs.FargateTaskDefinition(
             self,
             "VideoTaskDefinition",
@@ -566,7 +653,51 @@ class RagIngest(Construct):
             iam_resources=["*"],
         )
 
-        # Video branch
+        # Video branch - Start with file size check
+        check_video_file_size = tasks.LambdaInvoke(
+            self,
+            "CheckVideoFileSize",
+            lambda_function=check_file_size_lambda,
+            payload=sfn.TaskInput.from_json_path_at("$"),
+            result_path="$",
+            output_path="$.Payload",
+            retry_on_service_exceptions=True,
+        )
+
+        # Choice state: does video need chunking?
+        video_needs_chunking = sfn.Choice(self, "VideoNeedsChunking")
+
+        # Chunk video if too large
+        chunk_large_video = tasks.LambdaInvoke(
+            self,
+            "ChunkLargeVideo",
+            lambda_function=chunk_video_lambda,
+            payload=sfn.TaskInput.from_json_path_at("$"),
+            result_path="$.chunking_result",
+            output_path="$.chunking_result.Payload",
+            retry_on_service_exceptions=True,
+        )
+
+        # Process chunked videos with a Map state
+        process_video_chunks_map = sfn.Map(
+            self,
+            "ProcessVideoChunks",
+            max_concurrency=3,
+            items_path="$.chunks",
+            parameters={
+                "s3_uri.$": "$$.Map.Item.Value.s3_uri",
+                "bucket.$": "$$.Map.Item.Value.bucket",
+                "key.$": "$$.Map.Item.Value.key",
+                "lambda_name.$": "$$.Map.Item.Value.lambda_name",
+                "data_type.$": "$$.Map.Item.Value.data_type",
+                "timestamp.$": "$$.Map.Item.Value.timestamp",
+                "chunk_num.$": "$$.Map.Item.Value.chunk_num",
+                "start_time.$": "$$.Map.Item.Value.start_time",
+                "duration.$": "$$.Map.Item.Value.duration",
+            },
+        )
+
+        # Video branch (regular, non-chunked)
         start_video_transcription = tasks.CallAwsService(
             self,
             "StartVideoTranscriptionJob",
@@ -574,6 +705,22 @@ class RagIngest(Construct):
             action="startTranscriptionJob",
             parameters={
                 "TranscriptionJobName.$": "States.Format('{}-{}', $.lambda_name, States.UUID())",
+                "LanguageCode": "en-US",
+                "MediaFormat.$": "$.data_type",
+                "Media": {"MediaFileUri.$": "$.s3_uri"},
+                "Settings": {"ShowSpeakerLabels": True, "MaxSpeakerLabels": 5},
+            },
+            iam_resources=["*"],
+        )
+
+        # Chunk transcription (for chunked videos)
+        start_chunk_transcription = tasks.CallAwsService(
+            self,
+            "StartChunkTranscriptionJob",
+            service="transcribe",
+            action="startTranscriptionJob",
+            parameters={
+                "TranscriptionJobName.$": "States.Format('{}-chunk-{}-{}', $.lambda_name, $.chunk_num, States.UUID())",
                 "LanguageCode": "en-US",
                 "MediaFormat.$": "$.data_type",
                 "Media": {"MediaFileUri.$": "$.s3_uri"},
@@ -601,9 +748,67 @@ class RagIngest(Construct):
 
         video_job_complete = sfn.Choice(self, "VideoJobComplete")
 
+        # Chunk transcription wait and check states
+        wait_chunk_transcribe = sfn.Wait(
+            self,
+            "WaitChunkTranscribe",
+            time=sfn.WaitTime.duration(Duration.minutes(1)),
+        )
+
+        get_chunk_transcription = tasks.CallAwsService(
+            self,
+            "GetChunkTranscriptionJob",
+            service="transcribe",
+            action="getTranscriptionJob",
+            parameters={
+                "TranscriptionJobName.$": "$.TranscriptionJob.TranscriptionJobName"
+            },
+            iam_resources=["*"],
+        )
+
+        chunk_job_complete = sfn.Choice(self, "ChunkJobComplete")
+
+        # Delete chunk transcription job
+        delete_chunk_transcription_job = tasks.CallAwsService(
+            self,
+            "DeleteChunkTranscriptionJob",
+            service="transcribe",
+            action="deleteTranscriptionJob",
+            parameters={
+                "TranscriptionJobName.$": "$.TranscriptionJob.TranscriptionJobName"
+            },
+            iam_resources=["*"],
+        )
+
         process_video = tasks.EcsRunTask(
             self,
             "video-task",
+            integration_pattern=sfn.IntegrationPattern.RUN_JOB,
+            cluster=cluster,
+            task_definition=video_task_definition,
+            assign_public_ip=True,
+            container_overrides=[
+                tasks.ContainerOverride(
+                    container_definition=video_container,
+                    environment=[
+                        tasks.TaskEnvironmentVariable(
+                            name="STEP_FUNCTION_INPUT",
+                            value=sfn.JsonPath.string_at("States.JsonToString($)"),
+                        ),
+                    ],
+                )
+            ],
+            launch_target=tasks.EcsFargateLaunchTarget(
+                platform_version=ecs.FargatePlatformVersion.LATEST,
+            ),
+            security_groups=[security_group],
+            result_path="$.video_result",
+        )
+
+        # Separate task for processing video chunks (same task definition, different state)
+        process_video_chunk = tasks.EcsRunTask(
+            self,
+            "video-chunk-task",
             integration_pattern=sfn.IntegrationPattern.RUN_JOB,
             cluster=cluster,
             task_definition=video_task_definition,
@@ -651,13 +856,29 @@ class RagIngest(Construct):
         wait_audio_transcribe.next(get_audio_transcription)
         get_audio_transcription.next(audio_job_complete)
 
-        # Create a Fail state for audio transcription failures
-        audio_transcription_failed = sfn.Fail(
+        # Quarantine failed audio
+        quarantine_failed_audio = tasks.LambdaInvoke(
             self,
-            "AudioTranscriptionFailed",
-            cause="Audio transcription job failed",
-            error="TranscriptionJobFailed",
+            "QuarantineFailedAudio",
+            lambda_function=quarantine_lambda,
+            payload=sfn.TaskInput.from_object({
+                "s3_uri": sfn.JsonPath.string_at("$.TranscriptionJob.Media.MediaFileUri"),
+                "error": sfn.JsonPath.string_at("$.TranscriptionJob.FailureReason"),
+                "cause": "Audio transcription job failed",
+                "original_data": sfn.JsonPath.entire_payload,
+            }),
+            result_path="$.quarantine_result",
+            retry_on_service_exceptions=True,
         )
+
+        # Succeed state after quarantine (don't fail the entire workflow)
+        audio_quarantine_success = sfn.Succeed(
+            self,
+            "AudioQuarantineSuccess",
+            comment="Failed audio moved to quarantine folder"
+        )
+
+        quarantine_failed_audio.next(audio_quarantine_success)
 
         audio_job_complete.when(
             sfn.Condition.string_equals(
@@ -669,24 +890,103 @@ class RagIngest(Construct):
             sfn.Condition.string_equals(
                 "$.TranscriptionJob.TranscriptionJobStatus", "FAILED"
             ),
-            audio_transcription_failed,
+            quarantine_failed_audio,
         )
         audio_job_complete.otherwise(wait_audio_transcribe)
 
         process_audio.next(delete_transcription_job)
 
-        # Connect video branch
+        # Connect video branch - NEW WORKFLOW
+        # Step 1: Check file size
+        check_video_file_size.next(video_needs_chunking)
+
+        # Step 2a: If needs chunking, chunk the video then process chunks
+        video_needs_chunking.when(
+            sfn.Condition.boolean_equals("$.needs_chunking", True),
+            chunk_large_video,
+        )
+
+        # Step 2b: If doesn't need chunking, proceed with normal flow
+        video_needs_chunking.otherwise(start_video_transcription)
+
+        # Connect chunk workflow
+        start_chunk_transcription.next(wait_chunk_transcribe)
+        wait_chunk_transcribe.next(get_chunk_transcription)
+        get_chunk_transcription.next(chunk_job_complete)
+
+        # Quarantine failed chunk
+        quarantine_failed_chunk = tasks.LambdaInvoke(
+            self,
+            "QuarantineFailedChunk",
+            lambda_function=quarantine_lambda,
+            payload=sfn.TaskInput.from_object({
+                "s3_uri": sfn.JsonPath.string_at("$.TranscriptionJob.Media.MediaFileUri"),
+                "error": sfn.JsonPath.string_at("$.TranscriptionJob.FailureReason"),
+                "cause": "Chunk transcription job failed",
+                "original_data": sfn.JsonPath.entire_payload,
+            }),
+            result_path="$.quarantine_result",
+            retry_on_service_exceptions=True,
+        )
+
+        # Succeed state after quarantine (don't fail the entire workflow)
+        chunk_quarantine_success = sfn.Succeed(
+            self,
+            "ChunkQuarantineSuccess",
+            comment="Failed chunk moved to quarantine folder"
+        )
+
+        quarantine_failed_chunk.next(chunk_quarantine_success)
+
+        chunk_job_complete.when(
+            sfn.Condition.string_equals(
+                "$.TranscriptionJob.TranscriptionJobStatus", "COMPLETED"
+            ),
+            process_video_chunk,
+        )
+        chunk_job_complete.when(
+            sfn.Condition.string_equals(
+                "$.TranscriptionJob.TranscriptionJobStatus", "FAILED"
+            ),
+            quarantine_failed_chunk,
+        )
+        chunk_job_complete.otherwise(wait_chunk_transcribe)
+
+        # Process each chunk with video processor
+        process_video_chunk.next(delete_chunk_transcription_job)
+
+        # Connect chunk map state
+        process_video_chunks_map.item_processor(start_chunk_transcription)
+        chunk_large_video.next(process_video_chunks_map)
+
+        # Connect regular (non-chunked) video workflow
         start_video_transcription.next(wait_video_transcribe)
         wait_video_transcribe.next(get_video_transcription)
         get_video_transcription.next(video_job_complete)
 
-        # Create a Fail state for video transcription failures
-        video_transcription_failed = sfn.Fail(
+        # Quarantine failed video
+        quarantine_failed_video = tasks.LambdaInvoke(
             self,
-            "VideoTranscriptionFailed",
-            cause="Video transcription job failed",
-            error="TranscriptionJobFailed",
+            "QuarantineFailedVideo",
+            lambda_function=quarantine_lambda,
+            payload=sfn.TaskInput.from_object({
+                "s3_uri": sfn.JsonPath.string_at("$.TranscriptionJob.Media.MediaFileUri"),
+                "error": sfn.JsonPath.string_at("$.TranscriptionJob.FailureReason"),
+                "cause": "Video transcription job failed",
+                "original_data": sfn.JsonPath.entire_payload,
+            }),
+            result_path="$.quarantine_result",
+            retry_on_service_exceptions=True,
         )
+
+        # Succeed state after quarantine (don't fail the entire workflow)
+        video_quarantine_success = sfn.Succeed(
+            self,
+            "VideoQuarantineSuccess",
+            comment="Failed video moved to quarantine folder"
+        )
+
+        quarantine_failed_video.next(video_quarantine_success)
 
         video_job_complete.when(
             sfn.Condition.string_equals(
@@ -698,7 +998,7 @@ class RagIngest(Construct):
             sfn.Condition.string_equals(
                 "$.TranscriptionJob.TranscriptionJobStatus", "FAILED"
             ),
-            video_transcription_failed,
+            quarantine_failed_video,
         )
         video_job_complete.otherwise(wait_video_transcribe)
 
@@ -707,7 +1007,7 @@ class RagIngest(Construct):
         # Connect the branches to the choice state
         choice.when(
             sfn.Condition.string_matches("$.lambda_name", "process-video"),
-            start_video_transcription,
+            check_video_file_size,  # Changed to start with file size check
         )
         choice.when(
             sfn.Condition.string_matches("$.lambda_name", "process-audio"),

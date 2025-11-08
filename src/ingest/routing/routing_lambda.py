@@ -147,6 +147,11 @@ def lambda_handler(event, context):
             if key.endswith("/"):
                 continue
 
+            # Skip files in quarantine folder
+            if key.startswith("quarantine/"):
+                print(f"Skipping quarantined file: {key}")
+                continue
+
             s3_uri = f"s3://{bucket}/{key}"
 
             # Skip files that are already processed

@@ -1,58 +1,46 @@
 # Internet2 Chatbot
 
+This repository contains an enhanced and internally maintained version of a RAG-based chatbot solution, originally developed by the Cal Poly DxHub team and AWS.
 
 ## Table of Contents
-- [Collaboration](#collaboration)
-- [Disclaimers](#disclaimers)
 - [Overview](#chatbot-overview)
+- [Key Features & Enhancements](#key-features--enhancements)
 - [Deployment Steps](#deployment-steps)
-
-
-
-# Collaboration
-Thanks for your interest in our solution.  Having specific examples of replication and cloning allows us to continue to grow and scale our work. If you clone or download this repository, kindly shoot us a quick email to let us know you are interested in this work!
-
-[wwps-cic@amazon.com]
-
-# Disclaimers
-
-**Customers are responsible for making their own independent assessment of the information in this document.**
-
-**This document:**
-
-(a) is for informational purposes only,
-
-(b) represents current AWS product offerings and practices, which are subject to change without notice, and
-
-(c) does not create any commitments or assurances from AWS and its affiliates, suppliers or licensors. AWS products or services are provided “as is” without warranties, representations, or conditions of any kind, whether express or implied. The responsibilities and liabilities of AWS to its customers are controlled by AWS agreements, and this document is not part of, nor does it modify, any agreement between AWS and its customers.
-
-(d) is not to be considered a recommendation or viewpoint of AWS
-
-**Additionally, all prototype code and associated assets should be considered:**
-
-(a) as-is and without warranties
-
-(b) not suitable for production environments
-
-(d) to include shortcuts in order to support rapid prototyping such as, but not limitted to, relaxed authentication and authorization and a lack of strict adherence to security best practices
-
-**All work produced is open source. More information can be found in the GitHub repo.**
+- [Attribution](#attribution)
 
 ## Chatbot Overview
-- The [DxHub](https://dxhub.calpoly.edu/challenges/) developed a chatbot solution that can answer user questions pulling from their knowledge base articles. The chatbot contains many features:
 
-    #### Intelligent Question Answering
-    - Leverages Retrieval Augmented Generation (RAG) for accurate and contextual responses
-    - Dynamic context integration for more relevant and precise answers
-    - Real-time information retrieval
+A serverless RAG (Retrieval Augmented Generation) chatbot that answers questions using your knowledge base articles with:
 
-    #### Source Attribution
-    - Direct links to source documents
-    - Easy access to reference materials
+#### Intelligent Question Answering
+- Leverages Retrieval Augmented Generation (RAG) for accurate and contextual responses
+- Dynamic context integration for more relevant and precise answers
+- Real-time information retrieval
 
-    #### Scalability and Versitility
-    - Serverless architecture enables automatic scaling
-    - API-first design supports multiple frontend implementations
+#### Source Attribution
+- Direct links to source documents
+- Easy access to reference materials
+
+#### Scalability and Versatility
+- Serverless architecture enables automatic scaling
+- API-first design supports multiple frontend implementations
+
+#### User Feedback
+- Thumbs up/down rating system
+- Text feedback collection for response improvement
+
+## Key Features & Enhancements
+
+This version includes several enhancements beyond the original implementation:
+
+- **S3 Upload Utilities**: Added `s3_uploader.py` and `upload_local_files.py` for easier file management and batch uploads
+- **Environment Template**: Added `names.env.copy` template for easier environment configuration
+- **User Feedback System**: Implemented feedback collection with thumbs up/down and text comments
+- **Enhanced Confluence Processing**: Support for multiple Confluence URLs and skip existing S3 files to avoid reprocessing
+- **Conversation History**: Added configurable conversation history tracking and turn limits
+- **Query Classification**: Added query classifier with logging for better monitoring
+- **Advanced Configuration**: Extended `config.yaml` with temperature, top_p, max_tokens, docs_retrieved, and falloff parameters
+- **Improved Prompts**: Multiple prompt refinements for better response quality
 
 ## Deployment Steps
 
@@ -135,14 +123,17 @@ sudo apt-get install libreoffice
 **5. Configure Environment:**
 ```bash
 # Go into the code directory
-cd ingest_utils
-cd confluence_processor
+cd ingest_utils/confluence_processor
 
-# Set these variables in names.env:
+# Copy the template and configure your environment variables
+cp names.env.copy names.env
+
+# Edit names.env and set these variables:
 SERVICE_ACC_SECRET_NAME=default-service-account-name
 GOOGLE_DRIVE_CREDENTIALS=/path/to/your/service-account.json
 GOOGLE_API_KEY=your-google-api-key
 CONFLUENCE_API=your_atlassian_api_token_from_step_1
+
 # Load environment variables
 source names.env
 
@@ -200,8 +191,23 @@ streamlit run chat_frontend.py
 ## Known Issues
 - Quick PoC with no intent verification or error checking
 
-## Support
-For queries or issues:
+## Attribution
+
+This repository is based on the original chatbot solution developed by the Cal Poly DxHub team and AWS as part of the [DxHub Innovation Challenges](https://dxhub.calpoly.edu/challenges/).
+
+**Original Development Team:**
 - Darren Kraker, Sr Solutions Architect - dkraker@amazon.com
 - Nick Riley, Jr SDE - njriley@calpoly.edu
-- Kartik Malunjkar, Software Development Engineer Intern- kmalunjk@calpoly.edu
+- Kartik Malunjkar, Software Development Engineer Intern - kmalunjk@calpoly.edu
+
+### Original Project Disclaimers
+
+The original AWS prototype included the following disclaimers:
+
+**This code:**
+- (a) is provided as-is and without warranties
+- (b) is not suitable for production environments without additional hardening
+- (c) includes shortcuts for rapid prototyping such as relaxed authentication and authorization
+- (d) does not represent AWS product offerings, practices, or recommendations
+
+**Note:** This fork is independently maintained and is not affiliated with, endorsed by, or supported by AWS or Cal Poly DxHub.

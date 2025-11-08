@@ -209,12 +209,12 @@ class RagBackend(Construct):
         # Create chat-response resource and method
         chat_resource = api.root.add_resource("chat-response")
         chat_integration = apigw.LambdaIntegration(chat_lambda, proxy=True)
-        chat_resource.add_method("POST", chat_integration)
+        chat_resource.add_method("POST", chat_integration, api_key_required=True)
 
         # Create feedback resource and method
         feedback_resource = api.root.add_resource("feedback")
         feedback_integration = apigw.LambdaIntegration(feedback_lambda, proxy=True)
-        feedback_resource.add_method("POST", feedback_integration)
+        feedback_resource.add_method("POST", feedback_integration, api_key_required=True)
 
         # Add CORS support for chat-response
         chat_resource.add_method(

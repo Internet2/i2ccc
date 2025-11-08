@@ -14,6 +14,7 @@ config.yaml
 # Ignore service account credentials and environment variable files
 **/service-credentials.json
 **/names.env
+.env
 
 # Ignore Claude AI files
 .claude
