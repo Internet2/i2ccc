@@ -3,6 +3,7 @@ import { Plus, Info, PanelLeft } from 'lucide-react';
 import internet2Black from '../assets/internet2-black.png';
 import internet2White from '../assets/internet2-white.png';
 import type { PageType } from '../types';
+import { sidebarContent } from '../data/sidebarContent';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -163,7 +164,7 @@ export default function Sidebar({
                   type="button"
                   onClick={onToggleCollapse}
                   className={logoToggleButtonClass}
-                  aria-label="Expand sidebar"
+                  aria-label={sidebarContent.ariaLabels.expandSidebar}
                   onMouseEnter={handleLogoInteractStart}
                   onMouseLeave={handleLogoInteractEnd}
                   onFocus={handleLogoInteractStart}
@@ -182,8 +183,8 @@ export default function Sidebar({
             <button
               onClick={onToggleCollapse}
               className={toggleButtonClass}
-              aria-label="Collapse sidebar"
-              title="Collapse sidebar"
+              aria-label={sidebarContent.ariaLabels.collapseSidebar}
+              title={sidebarContent.ariaLabels.collapseSidebar}
             >
               <PanelLeft className="h-5 w-5 transition-transform duration-200" />
             </button>
@@ -199,7 +200,7 @@ export default function Sidebar({
             <span
               className={`overflow-hidden text-sm font-medium transition-all duration-200 ${labelVisibilityClass} whitespace-nowrap`}
             >
-              New Chat
+              {sidebarContent.buttons.newChat}
             </span>
           </button>
 
@@ -274,7 +275,7 @@ export default function Sidebar({
           <span
             className={`overflow-hidden text-sm transition-all duration-200 ${labelVisibilityClass} whitespace-nowrap`}
           >
-            About
+            {sidebarContent.buttons.about}
           </span>
         </button>
       </div>

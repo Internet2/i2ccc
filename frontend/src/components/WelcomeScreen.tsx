@@ -1,12 +1,12 @@
 import { exampleQuestions } from '../data/exampleQuestions';
+import { welcomeScreenContent } from '../data/welcomeScreenContent';
 
 interface WelcomeScreenProps {
   onQuestionSelect: (question: string) => void;
 }
 
 export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) {
-  const featuredQuestionIds = ['1', '11', '8'];
-  const featuredQuestions = featuredQuestionIds
+  const featuredQuestions = welcomeScreenContent.featuredQuestionIds
     .map((id) => exampleQuestions.find((question) => question.id === id)?.question)
     .filter((question): question is string => Boolean(question));
 
@@ -16,10 +16,10 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
         {/* Welcome Message */}
         <div>
           <h1 className="mb-4 text-3xl font-bold">
-            Welcome to the Internet2<br />Cloud Community Assistant
+            {welcomeScreenContent.title.line1}<br />{welcomeScreenContent.title.line2}
           </h1>
           <p className="text-lg text-[var(--color-text-secondary)]">
-            Ask me anything about cloud infrastructure for reasearch and education
+            {welcomeScreenContent.subtitle}
           </p>
         </div>
 
