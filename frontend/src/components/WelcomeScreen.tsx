@@ -12,14 +12,14 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
 
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <div className="mx-auto w-full max-w-2xl space-y-8 text-center text-[var(--color-text-primary)]">
+      <div className="mx-auto w-full max-w-2xl space-y-8 text-center text-[var(--color-text-primary)] animate-fadeIn">
         {/* Welcome Message */}
         <div>
           <h1 className="mb-4 text-3xl font-bold">
-            Welcome to the Internet2<br />Cloud Assistant
+            Welcome to the Internet2<br />Cloud Community Assistant
           </h1>
           <p className="text-lg text-[var(--color-text-secondary)]">
-            Ask me anything about cloud infrastructure for higher education
+            Ask me anything about cloud infrastructure for reasearch and education
           </p>
         </div>
 

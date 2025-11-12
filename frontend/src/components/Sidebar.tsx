@@ -153,7 +153,7 @@ export default function Sidebar({
                 src={internet2White}
                 alt="Internet2 logo"
                 className={`hidden flex-shrink-0 w-auto transition-all duration-200 ${
-                  isCollapsed ? 'h-8' : 'h-8'
+                  isCollapsed ? 'h-8' : 'h-10'
                 } dark:block ${shouldHideLogo ? 'opacity-0' : 'opacity-100'}`}
               />
               {isCollapsed && (

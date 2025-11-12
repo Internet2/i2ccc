@@ -53,6 +53,15 @@ module.exports = {
         'message': '0 4px 6px rgba(0, 0, 0, 0.1)',
         'message-dark': '0 4px 6px rgba(0, 0, 0, 0.3)',
       },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        fadeIn: 'fadeIn 0.6s ease-out forwards',
+      },
     },
   },
   plugins: [

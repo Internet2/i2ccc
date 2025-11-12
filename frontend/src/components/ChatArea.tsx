@@ -204,11 +204,11 @@ export default function ChatArea({
             {isLoading && (
               <div className="flex justify-start">
                 <div
-                  className="max-w-xs rounded-message bg-[var(--color-surface-muted)] p-4"
+                  className="max-w-xs rounded-message bg-[var(--color-surface-muted)] p-4 transition-all duration-300 ease-in-out"
                   role="status"
                   aria-live="polite"
                 >
-                  <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-3 transition-all duration-300 ease-in-out">
                     <div className="flex space-x-1">
                       <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-text-muted)]"></div>
                       <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-text-muted)]" style={{ animationDelay: '0.1s' }}></div>
