@@ -67,13 +67,6 @@ function App() {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  const handleSessionChange = (sessionId: string) => {
-    setCurrentSessionId(sessionId);
-    setPendingQuestion(null);
-    setCurrentPage('chat');
-    setSidebarOpen(false);
-  };
-
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
@@ -94,8 +87,6 @@ function App() {
         currentPage={currentPage}
         onNewChat={handleNewChat}
         onPageChange={handlePageChange}
-        onSessionChange={handleSessionChange}
-        currentSessionId={currentSessionId}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={handleSidebarCollapse}
       />
@@ -149,10 +140,12 @@ function App() {
               onInitialQuestionHandled={() => setPendingQuestion(null)}
             />
           ) : (
-            <AboutPage 
-              onQuestionSelect={handleAboutQuestionSelect}
-              onBackToChat={() => setCurrentPage('chat')}
-            />
+            <div className="animate-fadeIn">
+              <AboutPage
+                onQuestionSelect={handleAboutQuestionSelect}
+                onBackToChat={() => setCurrentPage('chat')}
+              />
+            </div>
           )}
         </main>
       </div>

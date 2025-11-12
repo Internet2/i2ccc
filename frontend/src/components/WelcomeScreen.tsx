@@ -11,7 +11,7 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
     .filter((question): question is string => Boolean(question));
 
   const getDelayClass = (index: number) => {
-    const delays = ['animate-fadeIn-delay-1', 'animate-fadeIn-delay-2', 'animate-fadeIn-delay-3'];
+    const delays = ['animate-fadeInUp-delay-1', 'animate-fadeInUp-delay-2', 'animate-fadeInUp-delay-3'];
     return delays[index] || '';
   };
 
@@ -19,7 +19,7 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
     <div className="flex h-full w-full items-center justify-center">
       <div className="mx-auto w-full max-w-2xl space-y-8 text-center text-[var(--color-text-primary)]">
         {/* Welcome Message */}
-        <div className="animate-fadeIn">
+        <div className="animate-fadeInUp">
           <h1 className="mb-4 text-3xl font-bold">
             {welcomeScreenContent.title.line1}<br />{welcomeScreenContent.title.line2}
           </h1>
