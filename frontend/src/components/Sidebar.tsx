@@ -1,9 +1,7 @@
-import { useEffect, useState, type KeyboardEvent, type MouseEvent } from 'react';
-import { createPortal } from 'react-dom';
-import { Plus, Info, PanelLeft, Trash } from 'lucide-react';
+import { useEffect, useState, type KeyboardEvent } from 'react';
+import { Plus, Info, PanelLeft } from 'lucide-react';
 import internet2Black from '../assets/internet2-black.png';
 import internet2White from '../assets/internet2-white.png';
-import { useChatHistory } from '../hooks/useChatHistory';
 import type { PageType } from '../types';
 
 interface SidebarProps {
@@ -11,8 +9,9 @@ interface SidebarProps {
   currentPage: PageType;
   onNewChat: () => void;
   onPageChange: (page: PageType) => void;
-  onSessionChange: (sessionId: string) => void;
-  currentSessionId: string;
+  // TODO: Re-enable when SSO is implemented
+  // onSessionChange: (sessionId: string) => void;
+  // currentSessionId: string;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }
@@ -22,18 +21,20 @@ export default function Sidebar({
   currentPage,
   onNewChat,
   onPageChange,
-  onSessionChange,
-  currentSessionId,
+  // TODO: Re-enable when SSO is implemented
+  // onSessionChange,
+  // currentSessionId,
   isCollapsed,
   onToggleCollapse,
 }: SidebarProps) {
-  const { sessions, deleteSession } = useChatHistory();
+  // TODO: Re-enable when SSO is implemented
+  // const { sessions, deleteSession } = useChatHistory();
   const [isLogoInteracted, setIsLogoInteracted] = useState(false);
-  const [sessionPendingDeletion, setSessionPendingDeletion] = useState<{
-    id: string;
-    title: string;
-    fullTitle: string;
-  } | null>(null);
+  // const [sessionPendingDeletion, setSessionPendingDeletion] = useState<{
+  //   id: string;
+  //   title: string;
+  //   fullTitle: string;
+  // } | null>(null);
 
   useEffect(() => {
     if (!isCollapsed) {
@@ -66,25 +67,26 @@ export default function Sidebar({
 
   const shouldHideLogo = isCollapsed && isLogoInteracted;
 
-  const formatSessionTitle = (title: string) => {
-    return title.length > 20 ? title.substring(0, 20) + '...' : title;
-  };
+  // TODO: Re-enable when SSO is implemented
+  // const formatSessionTitle = (title: string) => {
+  //   return title.length > 20 ? title.substring(0, 20) + '...' : title;
+  // };
 
-  const handleConfirmDeletion = () => {
-    if (!sessionPendingDeletion) {
-      return;
-    }
+  // const handleConfirmDeletion = () => {
+  //   if (!sessionPendingDeletion) {
+  //     return;
+  //   }
 
-    const { id } = sessionPendingDeletion;
-    const isDeletingActiveSession = id === currentSessionId;
+  //   const { id } = sessionPendingDeletion;
+  //   const isDeletingActiveSession = id === currentSessionId;
 
-    deleteSession(id);
-    setSessionPendingDeletion(null);
+  //   deleteSession(id);
+  //   setSessionPendingDeletion(null);
 
-    if (isDeletingActiveSession) {
-      onNewChat();
-    }
-  };
+  //   if (isDeletingActiveSession) {
+  //     onNewChat();
+  //   }
+  // };
 
   const labelVisibilityClass = isCollapsed
     ? 'pointer-events-none w-0 opacity-0'
@@ -201,7 +203,9 @@ export default function Sidebar({
             </span>
           </button>
 
-          {sessions.length > 0 && (
+          {/* TODO: Re-enable chat history display once SSO authentication is implemented */}
+          {/* This ensures users only see their own chats after proper authentication */}
+          {/* {sessions.length > 0 && (
             <div
               className={`w-full overflow-hidden transition-all duration-300 ${
                 isCollapsed
@@ -258,7 +262,7 @@ export default function Sidebar({
                 })}
               </div>
             </div>
-          )}
+          )} */}
         </div>
         <div className="flex-1" />
       </div>
@@ -275,7 +279,8 @@ export default function Sidebar({
         </button>
       </div>
     </aside>
-      {typeof document !== 'undefined' &&
+      {/* TODO: Re-enable delete confirmation modal when SSO is implemented */}
+      {/* {typeof document !== 'undefined' &&
         sessionPendingDeletion &&
         createPortal(
           <div
@@ -314,7 +319,7 @@ export default function Sidebar({
             </div>
           </div>,
           document.body,
-        )}
+        )} */}
     </>
   );
 }
