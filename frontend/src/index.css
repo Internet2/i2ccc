@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -42,7 +44,7 @@
   }
 
   html {
-    font-family: Inter, system-ui, -apple-system, sans-serif;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   }
   
   body {
@@ -178,5 +180,32 @@
 
   .animate-chatbot-bubble-enter {
     animation: chatbot-bubble-enter 300ms ease-out both;
+  }
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 500ms ease-out both;
+  }
+
+  .animate-fadeIn-delay-1 {
+    animation: fadeIn 500ms ease-out 0.6s both;
+  }
+
+  .animate-fadeIn-delay-2 {
+    animation: fadeIn 500ms ease-out 1s both;
+  }
+
+  .animate-fadeIn-delay-3 {
+    animation: fadeIn 500ms ease-out 1.4s both;
   }
 }
