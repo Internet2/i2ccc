@@ -34,6 +34,8 @@ RagChatbotStack(
     temperature=float(config["temperature"]),
     top_p=float(config["top_p"]),
     max_tokens=int(config["max_tokens"]),
+    api_key_value=config.get("api_key"),
+    cloudfront_password=config.get("cloudfront_password"),
 )
 
 app.synth()

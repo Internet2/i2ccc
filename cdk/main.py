@@ -5,6 +5,7 @@ from aws_cdk import Stack
 from constructs import Construct
 
 from .backend import RagBackend
+from .frontend import RagFrontend
 from .ingest import RagIngest
 
 
@@ -36,6 +37,8 @@ class RagChatbotStack(Stack):
         temperature: float = 1.0,
         top_p: float = 0.999,
         max_tokens: int = 4096,
+        api_key_value: str = None,
+        cloudfront_password: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -74,4 +77,11 @@ class RagChatbotStack(Stack):
             temperature=temperature,
             top_p=top_p,
             max_tokens=max_tokens,
+            api_key_value=api_key_value,
+        )
+
+        frontend_stack = RagFrontend(
+            self,
+            "RagFrontend",
+            cloudfront_password=cloudfront_password,
         )

@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import AboutPage from './components/AboutPage';
+import LoginPage from './components/LoginPage';
 import type { PageType } from './types';
 import ThemeToggle from './components/ThemeToggle';
 import './index.css';
@@ -29,6 +30,11 @@ function App() {
       ? 'dark'
       : 'light';
   });
+
+  // Authentication check
+  const isAuthenticated = typeof document !== 'undefined'
+    ? document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth-session='))
+    : false;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -71,11 +77,21 @@ function App() {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] transition-colors duration-300">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -140,7 +156,7 @@ function App() {
               onInitialQuestionHandled={() => setPendingQuestion(null)}
             />
           ) : (
-            <div className="animate-fadeIn">
+            <div className="h-full animate-fadeIn">
               <AboutPage
                 onQuestionSelect={handleAboutQuestionSelect}
                 onBackToChat={() => setCurrentPage('chat')}

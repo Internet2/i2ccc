@@ -1,16 +1,16 @@
 import axios from 'axios';
 import type { ApiResponse } from '../types';
 
-// Use proxy in development, direct API in production
+// Use Vite proxy in development, secure proxy API in production
 const isDevelopment = import.meta.env.VITE_ENVIRONMENT === 'development';
 const baseURL = isDevelopment ? '/api/' : import.meta.env.VITE_API_ENDPOINT;
 
 const api = axios.create({
   baseURL: baseURL,
   headers: {
-    'x-api-key': import.meta.env.VITE_API_KEY,
     'Content-Type': 'application/json',
   },
+  // Note: API key is now handled securely server-side by the proxy Lambda
 });
 
 export const sendMessage = async (query: string, sessionId: string): Promise<ApiResponse> => {

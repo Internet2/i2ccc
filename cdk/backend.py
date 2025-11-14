@@ -45,6 +45,7 @@ class RagBackend(Construct):
         temperature: float = 1.0,
         top_p: float = 0.999,
         max_tokens: int = 4096,
+        api_key_value: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -196,6 +197,20 @@ class RagBackend(Construct):
         conversation_table.grant_read_write_data(feedback_lambda)
 
         #################################################################################
+        # CDK FOR PROXY LAMBDA (Secure API Key Handling)
+        #################################################################################
+
+        # Store API key in SSM Parameter Store (if provided)
+        api_key_param = None
+        if api_key_value:
+            api_key_param = ssm.StringParameter(
+                self, "ApiKeyParameter",
+                parameter_name="/chatbot/api-key",
+                string_value=api_key_value,
+                description="API Gateway API Key for backend authentication"
+            )
+
+        #################################################################################
         # CDK FOR API
         #################################################################################
         # Define the API Gateway
@@ -296,6 +311,76 @@ class RagBackend(Construct):
         usage_plan.add_api_stage(stage=api.deployment_stage)
 
         self.api_url = api.url
+
+        #################################################################################
+        # CDK FOR PROXY API (Frontend-facing, no API key required)
+        #################################################################################
+
+        # Create proxy Lambda (only if API key is provided)
+        if api_key_value and api_key_param:
+            proxy_lambda = _lambda.Function(
+                self,
+                "ProxyHandler",
+                runtime=_lambda.Runtime.PYTHON_3_13,
+                code=_lambda.Code.from_asset(
+                    "src/proxy",
+                    bundling=BundlingOptions(
+                        image=_lambda.Runtime.PYTHON_3_13.bundling_image,
+                        command=[
+                            "bash",
+                            "-c",
+                            "pip install --platform manylinux2014_x86_64 --implementation cp --python-version 3.13 --only-binary=:all: --target /asset-output -r requirements.txt && cp -au . /asset-output",
+                        ],
+                    ),
+                ),
+                handler="proxy_handler.lambda_handler",
+                timeout=Duration.seconds(70),
+                environment={
+                    "BACKEND_API_URL": api.url,
+                    "API_KEY_PARAMETER_NAME": api_key_param.parameter_name,
+                },
+            )
+
+            # Grant SSM permissions to proxy Lambda
+            api_key_param.grant_read(proxy_lambda)
+
+            # Create proxy API Gateway (no API key required)
+            proxy_api = apigw.RestApi(
+                self,
+                "ProxyAPI",
+                rest_api_name="RagChatbotProxyAPI",
+                description="Public-facing proxy API (API key secured server-side)",
+                default_cors_preflight_options=apigw.CorsOptions(
+                    allow_origins=apigw.Cors.ALL_ORIGINS,
+                    allow_methods=apigw.Cors.ALL_METHODS,
+                    allow_headers=["Content-Type"],
+                ),
+            )
+
+            # Create /api resource
+            api_resource = proxy_api.root.add_resource("api")
+
+            # Create /api/chat-response resource
+            chat_proxy_resource = api_resource.add_resource("chat-response")
+            chat_proxy_integration = apigw.LambdaIntegration(proxy_lambda, proxy=True)
+            chat_proxy_resource.add_method("POST", chat_proxy_integration, api_key_required=False)
+
+            # Create /api/feedback resource
+            feedback_proxy_resource = api_resource.add_resource("feedback")
+            feedback_proxy_integration = apigw.LambdaIntegration(proxy_lambda, proxy=True)
+            feedback_proxy_resource.add_method("POST", feedback_proxy_integration, api_key_required=False)
+
+            # Store proxy API URL for output
+            self.proxy_api_url = proxy_api.url
+
+            CfnOutput(
+                self,
+                "ProxyAPIEndpoint",
+                value=self.proxy_api_url,
+                description="Public proxy API endpoint (use this in frontend)",
+            )
+        else:
+            self.proxy_api_url = None
 
         CfnOutput(
             self,
