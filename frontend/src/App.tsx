@@ -117,7 +117,7 @@ function App() {
             aria-label="Toggle sidebar"
           >
             <svg
-              className="h-6 w-6"
+              className="h-5 w-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -130,7 +130,7 @@ function App() {
               />
             </svg>
           </button>
-          <h1 className="text-lg font-semibold">
+          <h1 className="text-base font-semibold">
             Internet2 Cloud Assistant
           </h1>
           <ThemeToggle theme={theme} onToggle={handleToggleTheme} />

@@ -17,26 +17,26 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
 
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <div className="mx-auto w-full max-w-2xl space-y-8 text-center text-[var(--color-text-primary)]">
+      <div className="mx-auto w-full max-w-2xl space-y-6 lg:space-y-8 text-center text-[var(--color-text-primary)] px-4">
         {/* Welcome Message */}
         <div className="animate-fadeInUp">
-          <h1 className="mb-4 text-3xl font-bold">
+          <h1 className="mb-3 text-2xl lg:text-3xl font-bold leading-tight">
             {welcomeScreenContent.title.line1}<br />{welcomeScreenContent.title.line2}
           </h1>
-          <p className="text-lg text-[var(--color-text-secondary)]">
+          <p className="text-sm lg:text-lg text-[var(--color-text-secondary)]">
             {welcomeScreenContent.subtitle}
           </p>
         </div>
 
         {/* Featured Question Cards */}
-        <div className="grid w-full gap-4">
+        <div className="grid w-full gap-3 lg:gap-4">
           {featuredQuestions.map((question, index) => (
             <button
               key={index}
               onClick={() => onQuestionSelect(question)}
-              className={`rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left text-[var(--color-text-primary)] shadow-sm transition-all hover:border-[var(--color-highlight)] hover:shadow-md ${getDelayClass(index)}`}
+              className={`rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 lg:p-4 text-left text-[var(--color-text-primary)] shadow-sm transition-all hover:border-[var(--color-highlight)] hover:shadow-md ${getDelayClass(index)}`}
             >
-              <span className="font-medium">{question}</span>
+              <span className="text-sm lg:text-base font-medium">{question}</span>
             </button>
           ))}
         </div>

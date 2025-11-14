@@ -260,7 +260,7 @@ def process_text(
             title = metadata_info["title"]
 
             # Create member content badge
-            badge = "[Subscriber-only]" if is_member == "true" else "[Public]"
+            badge = "[CICP-subscriber-only]" if is_member == "true" else "[Public]"
 
             # Add timestamp for video/audio content
             if doc_type in ["video", "podcast"] and start_time:
@@ -337,7 +337,7 @@ def add_meeting_list(
         text += "\n\n**Meetings referenced:**\n"
         for folder_name, meeting_url, member_content in sorted(meetings):
             badge = (
-                "*[Subscriber-only]*"
+                "*[CICP-subscriber-only]*"
                 if member_content == "true"
                 else "*[Public]*"
             )
