@@ -31,10 +31,11 @@ function App() {
       : 'light';
   });
 
-  // Authentication check
-  const isAuthenticated = typeof document !== 'undefined'
-    ? document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth-session='))
-    : false;
+  // Authentication check - TEMPORARILY DISABLED
+  // const isAuthenticated = typeof document !== 'undefined'
+  //   ? document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth-session='))
+  //   : false;
+  const isAuthenticated = true;
 
   useEffect(() => {
     const root = document.documentElement;

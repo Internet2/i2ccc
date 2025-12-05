@@ -11,10 +11,23 @@ class S3Uploader:
 
     def file_exists(self, s3_object_key: str) -> bool:
         """
-        Check if a file exists in S3.
+        Check if a file exists in S3, including the quarantine/ folder.
         """
+        # Check root location first
         try:
             self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_object_key)
+            print(f"Found existing file at: s3://{self.bucket_name}/{s3_object_key}")
+            return True
+        except self.s3_client.exceptions.ClientError as e:
+            if e.response['Error']['Code'] != '404':
+                # Re-raise other errors (permissions, etc.)
+                raise
+
+        # Check quarantine folder
+        quarantine_key = f"quarantine/{s3_object_key}"
+        try:
+            self.s3_client.head_object(Bucket=self.bucket_name, Key=quarantine_key)
+            print(f"Found existing file in quarantine: s3://{self.bucket_name}/{quarantine_key}")
             return True
         except self.s3_client.exceptions.ClientError as e:
             if e.response['Error']['Code'] == '404':
