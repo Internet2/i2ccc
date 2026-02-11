@@ -1,0 +1,61 @@
+# Frontend CI - Builds and lints the React/TypeScript frontend
+# Runs on: pushes to main, pull requests, and manual triggers
+name: Frontend CI
+
+on:
+  # Trigger on pushes to main branch
+  push:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+  # Trigger on pull requests targeting main
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+  # Allow manual workflow runs from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  # Job to build and lint the frontend
+  build-and-lint:
+    name: Build and Lint Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install pnpm package manager
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      # Step 3: Set up Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'frontend/pnpm-lock.yaml'
+
+      # Step 4: Install dependencies
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: pnpm install --frozen-lockfile
+
+      # Step 5: Run ESLint to check code quality
+      - name: Run linter
+        working-directory: ./frontend
+        run: pnpm lint
+
+      # Step 6: Build the frontend to catch build errors
+      - name: Build frontend
+        working-directory: ./frontend
+        run: pnpm build

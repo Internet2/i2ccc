@@ -1,0 +1,31 @@
+# PR Labeler - Automatically labels pull requests based on changed files
+# Runs on: pull requests
+name: PR Labeler
+
+on:
+  # Trigger when a pull request is opened or updated
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Required permissions for the labeler to work
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Job to label PRs
+  label:
+    name: Label Pull Request
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Label the PR based on changed files
+      - name: Label PR
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml

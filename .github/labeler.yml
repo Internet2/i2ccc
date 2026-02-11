@@ -1,0 +1,53 @@
+# Labeler Configuration - Defines rules for auto-labeling PRs
+# Each label lists the file patterns that trigger it
+
+# Frontend-related changes
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'frontend/**/*'
+
+# Backend-related changes
+backend:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/backend/**/*'
+      - 'src/proxy/**/*'
+
+# Infrastructure/CDK changes
+infrastructure:
+  - changed-files:
+    - any-glob-to-any-file: 'cdk/**/*'
+
+# Ingestion pipeline changes
+ingestion:
+  - changed-files:
+    - any-glob-to-any-file: 'src/ingest/**/*'
+
+# Documentation changes
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.md'
+      - 'docs/**/*'
+
+# Dependencies updates
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/requirements.txt'
+      - 'frontend/package.json'
+      - 'frontend/pnpm-lock.yaml'
+
+# Configuration changes
+config:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.json'
+      - 'config.yaml'
+
+# Security-related changes
+security:
+  - changed-files:
+    - any-glob-to-any-file: 'security_reports/**/*'

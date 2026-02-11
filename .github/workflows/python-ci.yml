@@ -1,0 +1,74 @@
+# Python CI - Lints and tests Python code
+# Runs on: pushes to main, pull requests, and manual triggers
+name: Python CI
+
+on:
+  # Trigger on pushes to main branch
+  push:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - 'src/**'
+      - 'cdk/**'
+      - '**/requirements.txt'
+      - '.github/workflows/python-ci.yml'
+
+  # Trigger on pull requests targeting main
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.py'
+      - 'src/**'
+      - 'cdk/**'
+      - '**/requirements.txt'
+      - '.github/workflows/python-ci.yml'
+
+  # Allow manual workflow runs from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  # Job to lint Python code
+  lint-and-test:
+    name: Lint and Test Python
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python 3.11
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install flake8 for linting
+          pip install flake8
+          # Install project dependencies if requirements.txt exists
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f src/backend/requirements.txt ]; then pip install -r src/backend/requirements.txt; fi
+          if [ -f src/proxy/requirements.txt ]; then pip install -r src/proxy/requirements.txt; fi
+
+      # Step 4: Run flake8 to check code quality
+      # This checks for syntax errors, undefined names, and style issues
+      - name: Lint with flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Exit-zero treats all errors as warnings, allowing the workflow to continue
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      # Step 5: Run tests if a tests directory exists
+      # You can uncomment this when you add tests
+      # - name: Run tests
+      #   run: |
+      #     if [ -d tests ]; then
+      #       pip install pytest
+      #       pytest tests/
+      #     fi

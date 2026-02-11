@@ -1,0 +1,81 @@
+# Dependabot configuration - Automatically creates PRs for dependency updates
+# Checks for both security updates and new versions
+# Learn more: https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # Monitor Python dependencies in root requirements.txt
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Group all updates into a single PR to reduce noise
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+    # Limit to 5 open PRs at once
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "python"
+
+  # Monitor backend Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/src/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      backend-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+
+  # Monitor proxy Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/src/proxy"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      proxy-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+
+  # Monitor frontend npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "frontend"
+
+  # Monitor GitHub Actions versions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
