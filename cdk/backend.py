@@ -46,6 +46,7 @@ class RagBackend(Construct):
         top_p: float = 0.999,
         max_tokens: int = 4096,
         api_key_value: str = None,
+        frontend_distribution_domain: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -345,13 +346,20 @@ class RagBackend(Construct):
             api_key_param.grant_read(proxy_lambda)
 
             # Create proxy API Gateway (no API key required)
+            # Configure CORS to only allow requests from CloudFront distribution
+            allowed_origins = (
+                [f"https://{frontend_distribution_domain}"]
+                if frontend_distribution_domain
+                else apigw.Cors.ALL_ORIGINS
+            )
+
             proxy_api = apigw.RestApi(
                 self,
                 "ProxyAPI",
                 rest_api_name="RagChatbotProxyAPI",
                 description="Public-facing proxy API (API key secured server-side)",
                 default_cors_preflight_options=apigw.CorsOptions(
-                    allow_origins=apigw.Cors.ALL_ORIGINS,
+                    allow_origins=allowed_origins,
                     allow_methods=apigw.Cors.ALL_METHODS,
                     allow_headers=["Content-Type"],
                 ),

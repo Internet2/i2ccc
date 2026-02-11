@@ -109,7 +109,7 @@ def main(media_file_uri, transcribe_uri, metadata):
     logger.info(f"Processing video: {media_file_uri}")
 
     # Fetch the JSON file from the URI
-    response = requests.get(transcribe_uri)
+    response = requests.get(transcribe_uri, timeout=30)
 
     # Load the content as JSON
     transcript_json = response.json()

@@ -71,7 +71,7 @@ def transcribe_and_save(s3_url, output_path, vocabulary_name=None):
             transcript_uri = job["TranscriptionJob"]["Transcript"][
                 "TranscriptFileUri"
             ]
-            response = requests.get(transcript_uri)
+            response = requests.get(transcript_uri, timeout=30)
 
             create_directory(output_path)
 

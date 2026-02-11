@@ -56,6 +56,15 @@ class RagChatbotStack(Stack):
             chunk_size=chunk_size,
             overlap=overlap,
         )
+
+        # Create frontend stack first to get CloudFront distribution domain
+        frontend_stack = RagFrontend(
+            self,
+            "RagFrontend",
+            cloudfront_password=cloudfront_password,
+        )
+
+        # Create backend stack with frontend domain for CORS configuration
         rag_api_stack = RagBackend(
             self,
             "RagBackend",
@@ -78,10 +87,5 @@ class RagChatbotStack(Stack):
             top_p=top_p,
             max_tokens=max_tokens,
             api_key_value=api_key_value,
-        )
-
-        frontend_stack = RagFrontend(
-            self,
-            "RagFrontend",
-            cloudfront_password=cloudfront_password,
+            frontend_distribution_domain=frontend_stack.distribution_domain_name,
         )

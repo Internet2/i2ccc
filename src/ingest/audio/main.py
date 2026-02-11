@@ -80,7 +80,7 @@ def main(transcript_uri, media_file_uri, job_name, metadata):
         }
     
     # Fetch the JSON file from the URI
-    response = requests.get(transcript_uri)
+    response = requests.get(transcript_uri, timeout=30)
 
     # Load the content as JSON
     transcript_json = response.json()
