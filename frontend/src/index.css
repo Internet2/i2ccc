@@ -120,13 +120,18 @@
   .rounded-lg {
     border-radius: 1rem; /* Default is 0.5rem, this is 2x rounder */
   }
-  
+
   .rounded-md {
     border-radius: 0.75rem; /* Default is 0.375rem, this is 2x rounder */
   }
-  
+
   .rounded {
     border-radius: 0.5rem; /* Default is 0.25rem, this is 2x rounder */
+  }
+
+  /* Custom message bubble border radius */
+  .rounded-message {
+    border-radius: 1rem; /* 16px - for message bubbles */
   }
 
   /* Custom scrollbar styles - clean look with no track */
