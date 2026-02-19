@@ -129,11 +129,6 @@
     border-radius: 0.5rem; /* Default is 0.25rem, this is 2x rounder */
   }
 
-  /* Custom message bubble border radius */
-  .rounded-message {
-    border-radius: 1rem; /* 16px - for message bubbles */
-  }
-
   /* Custom scrollbar styles - clean look with no track */
   ::-webkit-scrollbar {
     width: 8px;

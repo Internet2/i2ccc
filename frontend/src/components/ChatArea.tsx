@@ -204,7 +204,7 @@ export default function ChatArea({
             {isLoading && (
               <div className="flex justify-start">
                 <div
-                  className="max-w-xs rounded-message bg-[var(--color-surface-muted)] p-4 transition-all duration-300 ease-in-out"
+                  className="max-w-xs rounded-2xl bg-[var(--color-surface-muted)] p-4 transition-all duration-300 ease-in-out"
                   role="status"
                   aria-live="polite"
                 >
