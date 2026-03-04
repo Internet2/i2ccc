@@ -1,24 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import Sidebar from './components/Sidebar';
+import Navbar from './components/Navbar';
 import ChatArea from './components/ChatArea';
 import AboutPage from './components/AboutPage';
 import LoginPage from './components/LoginPage';
-import type { PageType } from './types';
-import ThemeToggle from './components/ThemeToggle';
+import StarfieldCanvas from './components/StarfieldCanvas';
 import './index.css';
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<PageType>('chat');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string>(() => 
-    crypto.randomUUID()
-  );
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [currentSessionId] = useState<string>(() => crypto.randomUUID());
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') {
-      return 'light';
+      return 'dark';
     }
 
     const storedTheme = localStorage.getItem('i2-theme');
@@ -28,13 +23,10 @@ function App() {
 
     return window.matchMedia('(prefers-color-scheme: dark)').matches
       ? 'dark'
-      : 'light';
+      : 'dark';
   });
 
   // Authentication check - TEMPORARILY DISABLED
-  // const isAuthenticated = typeof document !== 'undefined'
-  //   ? document.cookie.split(';').some(cookie => cookie.trim().startsWith('auth-session='))
-  //   : false;
   const isAuthenticated = true;
 
   useEffect(() => {
@@ -48,34 +40,22 @@ function App() {
     localStorage.setItem('i2-theme', theme);
   }, [theme]);
 
-  const handleNewChat = () => {
-    setCurrentSessionId(crypto.randomUUID());
-    setPendingQuestion(null);
-    setCurrentPage('chat');
-    setSidebarOpen(false); // Close sidebar on mobile after action
+  useEffect(() => {
+    if (!aboutOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAboutOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [aboutOpen]);
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   const handleAboutQuestionSelect = (question: string) => {
     setPendingQuestion(question);
-    setCurrentPage('chat');
-    setSidebarOpen(false);
-  };
-
-  const handlePageChange = (page: PageType) => {
-    setCurrentPage(page);
-    setSidebarOpen(false); // Close sidebar on mobile after navigation
-  };
-
-  const handleSidebarToggle = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  const handleSidebarCollapse = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-  };
-
-  const handleToggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    setAboutOpen(false);
   };
 
   // Show login page if not authenticated
@@ -89,85 +69,42 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[var(--color-background)] text-[var(--color-text-primary)] transition-colors duration-300">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        currentPage={currentPage}
-        onNewChat={handleNewChat}
-        onPageChange={handlePageChange}
-        isCollapsed={sidebarCollapsed}
-        onToggleCollapse={handleSidebarCollapse}
+    <>
+      {theme === 'dark' && <StarfieldCanvas />}
+      <div className="relative flex flex-col h-screen text-[var(--color-text-primary)] transition-colors duration-300" style={{ zIndex: 1 }}>
+      <Navbar
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
+        onOpenAbout={() => setAboutOpen(true)}
       />
 
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col min-w-0 bg-[var(--color-background)] transition-colors duration-300">
-        {/* Mobile header */}
-        <header className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-[var(--color-text-primary)] shadow-sm lg:hidden">
-          <button
-            onClick={handleSidebarToggle}
-            className="rounded-md p-2 transition-colors hover:bg-[var(--color-surface-muted)]"
-            aria-label="Toggle sidebar"
+      <main className="flex-1 overflow-hidden">
+        <ChatArea
+          sessionId={currentSessionId}
+          onQuestionSelect={() => {}}
+          initialQuestion={pendingQuestion}
+          onInitialQuestionHandled={() => setPendingQuestion(null)}
+        />
+      </main>
+
+      {/* About modal */}
+      {aboutOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setAboutOpen(false)}
+        >
+          <div
+            className="bg-[var(--color-surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl"
+            onClick={(e) => e.stopPropagation()}
           >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-          <h1 className="text-base font-semibold">
-            Internet2 Cloud Assistant
-          </h1>
-          <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
-        </header>
-
-        {/* Desktop theme toggle */}
-        <div className="sticky top-0 z-10 hidden items-center justify-end px-6 pt-4 lg:flex">
-          <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
-        </div>
-
-        {/* Page content */}
-        <main className="flex-1 overflow-hidden">
-          {currentPage === 'chat' ? (
-            <ChatArea 
-              sessionId={currentSessionId}
-              onQuestionSelect={(question) => {
-                setCurrentPage('chat');
-                if (question) {
-                  setPendingQuestion(null);
-                }
-              }}
-              initialQuestion={pendingQuestion}
-              onInitialQuestionHandled={() => setPendingQuestion(null)}
+            <AboutPage
+              onQuestionSelect={handleAboutQuestionSelect}
+              onClose={() => setAboutOpen(false)}
             />
-          ) : (
-            <div className="h-full animate-fadeIn">
-              <AboutPage
-                onQuestionSelect={handleAboutQuestionSelect}
-                onBackToChat={() => setCurrentPage('chat')}
-              />
-            </div>
-          )}
-        </main>
-      </div>
+          </div>
+        </div>
+      )}
 
-      {/* Toast notifications */}
       <Toaster
         position="top-right"
         toastOptions={{
@@ -182,7 +119,8 @@ function App() {
           },
         }}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

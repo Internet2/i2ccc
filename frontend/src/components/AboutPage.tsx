@@ -1,13 +1,13 @@
-import { ArrowLeft } from 'lucide-react';
+import { X } from 'lucide-react';
 import { exampleQuestions } from '../data/exampleQuestions';
 import { aboutPageContent } from '../data/aboutPageContent';
 
 interface AboutPageProps {
   onQuestionSelect: (question: string) => void;
-  onBackToChat: () => void;
+  onClose: () => void;
 }
 
-export default function AboutPage({ onQuestionSelect, onBackToChat }: AboutPageProps) {
+export default function AboutPage({ onQuestionSelect, onClose }: AboutPageProps) {
   const featuredQuestions = aboutPageContent.sections.featuredQuestions.questionIds
     .map((id) => exampleQuestions.find((question) => question.id === id)?.question)
     .filter((question): question is string => Boolean(question));
@@ -15,14 +15,16 @@ export default function AboutPage({ onQuestionSelect, onBackToChat }: AboutPageP
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="mx-auto max-w-4xl space-y-8 p-6 text-[var(--color-text-primary)]">
-        {/* Back to Chat Button */}
-        <button
-          onClick={onBackToChat}
-          className="mb-6 flex items-center gap-2 text-[var(--color-highlight)] transition-colors hover:text-[var(--color-highlight-soft)]"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>{aboutPageContent.backToChat}</span>
-        </button>
+        {/* Close Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-md p-2 text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)]"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         {/* What This Assistant Does */}
         <section>
