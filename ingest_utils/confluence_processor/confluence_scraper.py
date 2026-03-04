@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
 import requests #type:ignore
@@ -7,8 +7,14 @@ from bs4 import BeautifulSoup #type: ignore
 
 
 class ConfluenceScraper:
-    def __init__(self, base_url: str):
+    def __init__(self, base_url: str, api_token: Optional[str] = None):
         self.base_url = base_url
+        # Use browser user-agent to bypass bot protection
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        if api_token:
+            self.headers["Authorization"] = f"Bearer {api_token}"
 
     def _get_file_type(self, url: str) -> str:
         """
@@ -25,7 +31,7 @@ class ConfluenceScraper:
         Returns a list of dictionaries, each containing asset info
         """
         try:
-            response = requests.get(self.base_url)
+            response = requests.get(self.base_url, headers=self.headers)
             response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
         except requests.exceptions.RequestException as e:
             print(f"Error fetching page {self.base_url}: {e}")

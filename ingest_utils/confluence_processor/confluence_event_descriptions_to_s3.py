@@ -30,9 +30,12 @@ S3_SUBFOLDER = config.get("s3_subfolder", "").strip()
 DOWNLOAD_DIR = "confluence_downloads"
 SKIP_EXISTING = config.get("skip_existing_s3_files", False)
 CONFLUENCE_API_TOKEN = os.getenv("CONFLUENCE_API")
-HEADERS = (
-    {"Authorization": f"Bearer {CONFLUENCE_API_TOKEN}"} if CONFLUENCE_API_TOKEN else {}
-)
+# Use browser user-agent to bypass bot protection
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+}
+if CONFLUENCE_API_TOKEN:
+    HEADERS["Authorization"] = f"Bearer {CONFLUENCE_API_TOKEN}"
 
 if SKIP_EXISTING:
     print("Skip existing S3 files is ENABLED - will not re-upload existing files")

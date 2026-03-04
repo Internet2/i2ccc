@@ -5,6 +5,7 @@ from typing import Optional
 import pandas as pd #type: ignore
 import requests #type: ignore
 import yaml  #type: ignore
+from dotenv import load_dotenv
 from confluence_scraper import ConfluenceScraper
 from s3_uploader import S3Uploader
 
@@ -35,8 +36,12 @@ def download_file(url: str, output_path: str) -> Optional[str]:
     Downloads a file from a given URL to the specified output path.
     Returns the path if successful, None otherwise.
     """
+    # Use browser user-agent to bypass bot protection
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     try:
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=True, headers=headers)
         response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
 
         with open(output_path, "wb") as f:
@@ -54,6 +59,15 @@ def main():
     config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.yaml")
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
+
+    # Load environment variables
+    env_file = config.get("env_file", "names.env")
+    load_dotenv(env_file)
+
+    confluence_api_token = os.getenv("CONFLUENCE_API")
+    if not confluence_api_token:
+        print("WARNING: CONFLUENCE_API token not found in environment. Authentication may fail.")
+        print(f"Please set CONFLUENCE_API in your {env_file} file.")
 
     confluence_urls = config.get("confluence_urls", [])
 
@@ -83,7 +97,7 @@ def main():
     all_assets = []
     for confluence_url in confluence_urls:
         print(f"\nScraping assets from: {confluence_url}")
-        scraper = ConfluenceScraper(base_url=confluence_url)
+        scraper = ConfluenceScraper(base_url=confluence_url, api_token=confluence_api_token)
         assets = scraper.scrape_assets()
 
         if assets:

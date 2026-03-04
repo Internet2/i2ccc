@@ -18,3 +18,5 @@ config.yaml
 
 # Ignore Claude AI files
 .claude
+
+planning-docs/
