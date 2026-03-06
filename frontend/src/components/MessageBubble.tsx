@@ -54,8 +54,8 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
     return (
       <div className={`flex justify-end ${isFirstUserMessage ? 'mt-20' : ''}`}>
         <div className="max-w-xs lg:max-w-md">
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-3 rounded-2xl rounded-tr-sm">
-            <p className="text-white">{message.content}</p>
+          <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] px-4 py-3 rounded-lg">
+            <p>{message.content}</p>
           </div>
         </div>
       </div>
