@@ -28,7 +28,7 @@ export default function Navbar({ theme, onToggleTheme, onOpenAbout }: NavbarProp
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenAbout}
-          className="flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-2 text-sm text-[var(--color-text-primary)] transition-colors hover:border-[var(--color-highlight)]"
+          className="flex items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)]"
         >
           <Info className="h-4 w-4" />
           <span>About</span>
