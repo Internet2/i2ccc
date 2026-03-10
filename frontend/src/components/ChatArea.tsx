@@ -204,24 +204,22 @@ export default function ChatArea({
             {isLoading && (
               <div className="flex justify-start">
                 <div
-                  className="max-w-xs rounded-2xl bg-[var(--color-surface-muted)] p-4 transition-all duration-300 ease-in-out"
+                  className="flex items-center gap-3 px-1 py-2"
                   role="status"
                   aria-live="polite"
                 >
-                  <div className="flex items-center space-x-3 transition-all duration-300 ease-in-out">
-                    <div className="flex space-x-1">
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-loading)]"></div>
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                    <span
-                      className={`transform text-sm font-medium text-[var(--color-loading)] transition-all duration-300 ease-in-out ${
-                        isLoadingMessageVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
-                      }`}
-                    >
-                      {loadingMessage}...
-                    </span>
+                  <div className="flex space-x-1">
+                    <div className="h-1.5 w-1.5 animate-dot-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '0ms' }}></div>
+                    <div className="h-1.5 w-1.5 animate-dot-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '150ms' }}></div>
+                    <div className="h-1.5 w-1.5 animate-dot-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '300ms' }}></div>
                   </div>
+                  <span
+                    className={`text-[13px] font-medium tracking-[-0.01em] text-[var(--color-loading)] transition-all duration-250 ease-out ${
+                      isLoadingMessageVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-0.5'
+                    }`}
+                  >
+                    {loadingMessage}…
+                  </span>
                 </div>
               </div>
             )}

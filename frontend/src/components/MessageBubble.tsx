@@ -54,7 +54,7 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
     return (
       <div className={`flex justify-end ${isFirstUserMessage ? 'mt-20' : ''}`}>
         <div className="max-w-xs lg:max-w-md">
-          <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] px-4 py-3 rounded-lg">
+          <div className="message-bubble-user px-4 py-3 rounded-xl text-[15px] leading-relaxed tracking-[-0.01em]">
             <p>{message.content}</p>
           </div>
         </div>
@@ -123,17 +123,17 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
         
         {/* Sources */}
         {message.sources && message.sources.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-1.5 px-4">
             {message.sources.map((source, index) => (
               <a
                 key={index}
                 href={source.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded bg-[var(--color-surface-muted)] px-2 py-1 text-xs text-[var(--color-highlight)] transition-colors hover:bg-[var(--color-surface)] hover:text-[var(--color-highlight-soft)]"
+                className="source-chip"
               >
-                <ExternalLink className="w-3 h-3" />
-                <span>Source: {source.title}</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+                <span>{source.title}</span>
               </a>
             ))}
           </div>

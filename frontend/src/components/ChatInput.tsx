@@ -39,25 +39,25 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
 
   return (
     <div className="space-y-2">
-      <div className="flex items-end gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 focus-within:ring-2 focus-within:ring-[var(--color-loading)] focus-within:border-transparent transition-shadow">
+      <div className="glass-input flex items-end gap-3 rounded-xl px-4 py-3">
         <textarea
           ref={textareaRef}
           value={message}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={chatInputContent.placeholder}
-          className="w-full resize-none bg-transparent text-sm lg:text-base text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none leading-relaxed"
-          rows={3}
+          className="w-full resize-none bg-transparent text-[15px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none leading-relaxed tracking-[-0.01em]"
+          rows={2}
           disabled={disabled}
           style={{ maxHeight: '160px', overflowY: 'auto' }}
         />
         <button
           onClick={handleSubmit}
           disabled={!canSend}
-          className={`flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full transition-colors mb-0.5 ${
+          className={`flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full mb-0.5 transition-all duration-200 ${
             canSend
-              ? 'bg-[var(--color-loading)] text-white hover:bg-[var(--color-text-secondary)]'
-              : 'bg-[var(--color-border)] text-[var(--color-text-muted)] cursor-not-allowed'
+              ? 'bg-[#1d1d1f] dark:bg-white text-white dark:text-black shadow-[0_1px_3px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95'
+              : 'bg-[rgba(0,0,0,0.07)] dark:bg-[rgba(255,255,255,0.08)] text-[var(--color-text-muted)] cursor-not-allowed'
           }`}
           aria-label={chatInputContent.sendButtonLabel}
         >
@@ -65,8 +65,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
         </button>
       </div>
 
-      {/* Disclaimer */}
-      <p className="text-[10px] lg:text-xs text-center text-[var(--color-text-secondary)]">
+      <p className="text-[10px] lg:text-[11px] text-center text-[var(--color-text-muted)] tracking-[-0.005em]">
         {chatInputContent.disclaimer}
       </p>
     </div>

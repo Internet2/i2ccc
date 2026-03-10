@@ -11,7 +11,7 @@ interface NavbarProps {
 
 export default function Navbar({ theme, onToggleTheme, onOpenAbout }: NavbarProps) {
   return (
-    <nav className="flex items-center justify-between px-6 py-3 bg-[var(--color-background)] text-[var(--color-text-primary)] transition-colors duration-300">
+    <nav className="navbar-glass flex items-center justify-between px-6 py-3 text-[var(--color-text-primary)]">
       <a href="/">
         <img
           src={internet2Black}
@@ -25,12 +25,12 @@ export default function Navbar({ theme, onToggleTheme, onOpenAbout }: NavbarProp
         />
       </a>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <button
           onClick={onOpenAbout}
-          className="flex items-center justify-center gap-1.5 rounded-md border border-[var(--color-border)] bg-transparent px-3 py-1.5 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)]"
+          className="nav-btn"
         >
-          <Info className="h-4 w-4" />
+          <Info className="h-3.5 w-3.5" />
           <span>About</span>
         </button>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
