@@ -210,12 +210,12 @@ export default function ChatArea({
                 >
                   <div className="flex items-center space-x-3 transition-all duration-300 ease-in-out">
                     <div className="flex space-x-1">
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-text-muted)]"></div>
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-text-muted)]" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-text-muted)]" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-loading)]"></div>
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '0.2s' }}></div>
                     </div>
                     <span
-                      className={`transform text-sm font-medium text-[var(--color-text-secondary)] transition-all duration-300 ease-in-out ${
+                      className={`transform text-sm font-medium text-[var(--color-loading)] transition-all duration-300 ease-in-out ${
                         isLoadingMessageVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
                       }`}
                     >

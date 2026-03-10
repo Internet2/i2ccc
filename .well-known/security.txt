@@ -1,0 +1,4 @@
+Contact: mailto:tmanik@internet2.edu
+Expires: 2027-03-10T00:00:00.000Z
+Policy: https://github.internet2.edu/netplus/cicp-chatbot/blob/main/.github/SECURITY.md
+Preferred-Languages: en
