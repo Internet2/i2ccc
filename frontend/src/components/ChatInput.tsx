@@ -46,7 +46,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={chatInputContent.placeholder}
-          className="w-full resize-none bg-transparent text-[15px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none leading-relaxed tracking-[-0.01em]"
+          className="w-full resize-none bg-transparent text-[0.9375rem] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] focus:outline-none leading-relaxed tracking-[-0.01em]"
           rows={2}
           disabled={disabled}
           style={{ maxHeight: '160px', overflowY: 'auto' }}
@@ -65,7 +65,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
         </button>
       </div>
 
-      <p className="text-[10px] lg:text-[11px] text-center text-[var(--color-text-muted)] tracking-[-0.005em]">
+      <p className="text-[0.625rem] lg:text-[0.6875rem] text-center text-[var(--color-text-muted)] tracking-[-0.005em]">
         {chatInputContent.disclaimer}
       </p>
     </div>

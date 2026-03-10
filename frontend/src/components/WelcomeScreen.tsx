@@ -20,10 +20,10 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
       <div className="mx-auto w-full max-w-2xl space-y-8 lg:space-y-10 text-center px-4">
         {/* Welcome heading */}
         <div className="animate-fadeInUp space-y-3">
-          <h1 className="text-[28px] lg:text-[40px] font-bold leading-[1.07] tracking-[-0.025em] text-[var(--color-text-primary)]">
+          <h1 className="text-[1.75rem] lg:text-[2.5rem] font-bold leading-[1.07] tracking-[-0.025em] text-[var(--color-text-primary)]">
             {welcomeScreenContent.title.line1}<br />{welcomeScreenContent.title.line2}
           </h1>
-          <p className="text-[15px] lg:text-[17px] text-[var(--color-text-secondary)] leading-relaxed tracking-[-0.01em] max-w-lg mx-auto">
+          <p className="text-[0.9375rem] lg:text-[1.0625rem] text-[var(--color-text-secondary)] leading-relaxed tracking-[-0.01em] max-w-lg mx-auto">
             {welcomeScreenContent.subtitle}
           </p>
         </div>
@@ -36,7 +36,7 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
               onClick={() => onQuestionSelect(question)}
               className={`glass-card rounded-xl p-4 text-left w-full ${getDelayClass(index)}`}
             >
-              <span className="relative z-10 text-[13px] lg:text-[15px] font-medium leading-snug tracking-[-0.01em] text-[var(--color-text-primary)]">
+              <span className="relative z-10 text-[0.8125rem] lg:text-[0.9375rem] font-medium leading-snug tracking-[-0.01em] text-[var(--color-text-primary)]">
                 {question}
               </span>
             </button>

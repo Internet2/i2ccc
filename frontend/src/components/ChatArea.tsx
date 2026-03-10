@@ -214,7 +214,7 @@ export default function ChatArea({
                     <div className="h-1.5 w-1.5 animate-dot-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '300ms' }}></div>
                   </div>
                   <span
-                    className={`text-[13px] font-medium tracking-[-0.01em] text-[var(--color-loading)] transition-all duration-250 ease-out ${
+                    className={`text-[0.9375rem] font-medium leading-relaxed tracking-[-0.01em] text-[var(--color-loading)] transition-all duration-250 ease-out ${
                       isLoadingMessageVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-0.5'
                     }`}
                   >

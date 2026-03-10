@@ -54,7 +54,7 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
     return (
       <div className={`flex justify-end ${isFirstUserMessage ? 'mt-20' : ''}`}>
         <div className="max-w-xs lg:max-w-md">
-          <div className="message-bubble-user px-4 py-3 rounded-xl text-[15px] leading-relaxed tracking-[-0.01em]">
+          <div className="message-bubble-user px-4 py-3 rounded-xl text-[0.9375rem] leading-relaxed tracking-[-0.01em]">
             <p>{message.content}</p>
           </div>
         </div>

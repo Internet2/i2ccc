@@ -85,7 +85,7 @@ export default function AboutPage({ onQuestionSelect, onClose }: AboutPageProps)
                 onClick={() => onQuestionSelect(question)}
                 className="glass-card rounded-xl p-4 text-left w-full"
               >
-                <span className="relative z-10 text-[13px] lg:text-[15px] font-medium leading-snug tracking-[-0.01em] text-[var(--color-text-primary)]">
+                <span className="relative z-10 text-[0.8125rem] lg:text-[0.9375rem] font-medium leading-snug tracking-[-0.01em] text-[var(--color-text-primary)]">
                   {question}
                 </span>
               </button>

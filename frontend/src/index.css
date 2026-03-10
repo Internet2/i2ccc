@@ -77,6 +77,7 @@
 
   html {
     font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, ui-sans-serif, sans-serif;
+    font-size: 110%;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
