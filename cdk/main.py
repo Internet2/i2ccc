@@ -7,6 +7,7 @@ from constructs import Construct
 from .backend import RagBackend
 from .frontend import RagFrontend
 from .ingest import RagIngest
+from .waf import Waf
 
 
 class RagChatbotStack(Stack):
@@ -57,11 +58,15 @@ class RagChatbotStack(Stack):
             overlap=overlap,
         )
 
+        # Create WAF WebACL before CloudFront (must be in us-east-1 for CloudFront scope)
+        waf = Waf(self, "Waf")
+
         # Create frontend stack first to get CloudFront distribution domain
         frontend_stack = RagFrontend(
             self,
             "RagFrontend",
             cloudfront_password=cloudfront_password,
+            web_acl_id=waf.web_acl_arn,
         )
 
         # Create backend stack with frontend domain for CORS configuration

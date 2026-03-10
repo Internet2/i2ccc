@@ -31,6 +31,7 @@ class RagFrontend(Construct):
         scope: Construct,
         construct_id: str,
         cloudfront_password: str = None,
+        web_acl_id: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -175,6 +176,7 @@ class RagFrontend(Construct):
             default_behavior=cloudfront.BehaviorOptions(**default_behavior_options),
             additional_behaviors=additional_behaviors,
             default_root_object="index.html",
+            web_acl_id=web_acl_id,
             error_responses=[
                 # SPA routing - redirect all 404s to index.html
                 cloudfront.ErrorResponse(
