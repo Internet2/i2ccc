@@ -78,14 +78,16 @@ export default function AboutPage({ onQuestionSelect, onClose }: AboutPageProps)
           <p className="mb-6 text-[var(--color-text-secondary)]">
             {aboutPageContent.sections.featuredQuestions.description}
           </p>
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {featuredQuestions.map((question, index) => (
               <button
                 key={index}
                 onClick={() => onQuestionSelect(question)}
-                className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition-all hover:border-[var(--color-highlight)] hover:shadow-md"
+                className="glass-card rounded-xl p-4 text-left w-full"
               >
-                <span>{question}</span>
+                <span className="relative z-10 text-[13px] lg:text-[15px] font-medium leading-snug tracking-[-0.01em] text-[var(--color-text-primary)]">
+                  {question}
+                </span>
               </button>
             ))}
           </div>
