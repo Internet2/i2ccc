@@ -34,7 +34,7 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
             <button
               key={index}
               onClick={() => onQuestionSelect(question)}
-              className={`rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 lg:p-4 text-left text-[var(--color-text-primary)] shadow-sm transition-all hover:border-[var(--color-highlight)] hover:shadow-md ${getDelayClass(index)}`}
+              className={`rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 lg:p-4 text-left text-[var(--color-text-primary)] shadow-sm transition-all hover:border-[var(--color-loading)] hover:shadow-md ${getDelayClass(index)}`}
             >
               <span className="text-sm lg:text-base font-medium">{question}</span>
             </button>

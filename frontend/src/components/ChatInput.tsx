@@ -39,7 +39,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
 
   return (
     <div className="space-y-2">
-      <div className="flex items-end gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 focus-within:ring-2 focus-within:ring-[var(--color-highlight)] focus-within:border-transparent transition-shadow">
+      <div className="flex items-end gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 focus-within:ring-2 focus-within:ring-[var(--color-loading)] focus-within:border-transparent transition-shadow">
         <textarea
           ref={textareaRef}
           value={message}
@@ -56,7 +56,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
           disabled={!canSend}
           className={`flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full transition-colors mb-0.5 ${
             canSend
-              ? 'bg-[var(--color-highlight)] text-white hover:bg-[var(--color-highlight-soft)]'
+              ? 'bg-[var(--color-loading)] text-white hover:bg-[var(--color-text-secondary)]'
               : 'bg-[var(--color-border)] text-[var(--color-text-muted)] cursor-not-allowed'
           }`}
           aria-label={chatInputContent.sendButtonLabel}
