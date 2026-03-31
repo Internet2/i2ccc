@@ -3,7 +3,6 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import ChatArea from './components/ChatArea';
 import AboutPage from './components/AboutPage';
-import LoginPage from './components/LoginPage';
 import StarfieldCanvas from './components/StarfieldCanvas';
 import './index.css';
 
@@ -26,8 +25,6 @@ function App() {
       : 'dark';
   });
 
-  // Authentication check - TEMPORARILY DISABLED
-  const isAuthenticated = true;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -58,15 +55,6 @@ function App() {
     setAboutOpen(false);
   };
 
-  // Show login page if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <LoginPage
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
-      />
-    );
-  }
 
   return (
     <>
