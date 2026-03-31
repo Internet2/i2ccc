@@ -45,7 +45,6 @@ class RagChatbotStack(Stack):
         saml_idp_name: str = None,
         saml_idp_metadata_url: str = None,
         saml_attribute_mapping: dict = None,
-        cloudfront_url: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -67,6 +66,13 @@ class RagChatbotStack(Stack):
         # Create WAF WebACL before CloudFront (must be in us-east-1 for CloudFront scope)
         waf = Waf(self, "Waf")
 
+        # Create frontend first to get CloudFront distribution domain
+        frontend_stack = RagFrontend(
+            self,
+            "RagFrontend",
+            web_acl_id=waf.web_acl_arn,
+        )
+
         # Create Cognito SAML auth (optional — only if all required config is provided)
         if all([cognito_domain_prefix, saml_idp_name, saml_idp_metadata_url, saml_attribute_mapping]):
             CognitoSamlAuth(
@@ -76,15 +82,8 @@ class RagChatbotStack(Stack):
                 saml_idp_name=saml_idp_name,
                 saml_idp_metadata_url=saml_idp_metadata_url,
                 saml_attribute_mapping=saml_attribute_mapping,
-                cloudfront_url=cloudfront_url,
+                cloudfront_url=f"https://{frontend_stack.distribution_domain_name}",
             )
-
-        # Create frontend stack first to get CloudFront distribution domain
-        frontend_stack = RagFrontend(
-            self,
-            "RagFrontend",
-            web_acl_id=waf.web_acl_arn,
-        )
 
         # Create backend stack with frontend domain for CORS configuration
         rag_api_stack = RagBackend(

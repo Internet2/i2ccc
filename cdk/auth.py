@@ -20,7 +20,7 @@ class CognitoSamlAuth(Construct):
         saml_attribute_mapping  - dict mapping Cognito attribute names to SAML attribute names
 
     Optional:
-        cloudfront_url          - added to Cognito callback/logout URLs automatically
+        cloudfront_url          - CloudFront distribution URL (auto-derived from frontend stack)
     """
 
     def __init__(

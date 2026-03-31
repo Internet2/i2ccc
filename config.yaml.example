@@ -2,7 +2,6 @@
 opensearch_endpoint: <your-opensearch-endpoint>.us-east-1.aoss.amazonaws.com
 rag_api_endpoint: https://<api-id>.execute-api.us-east-1.amazonaws.com/prod/
 proxy_api_endpoint: https://<api-id>.execute-api.us-east-1.amazonaws.com/prod/
-cloudfront_url: "https://<distribution-id>.cloudfront.net/"
 enable_streaming: true
 s3_bucket_name: <your-s3-bucket-name>
 step_function_arn: arn:aws:states:us-east-1:<account-id>:stateMachine:<state-machine-name>

@@ -41,7 +41,6 @@ RagChatbotStack(
         "saml_idp_name": config.get("saml_idp_name"),
         "saml_idp_metadata_url": config.get("saml_idp_metadata_url"),
         "saml_attribute_mapping": config.get("saml_attribute_mapping"),
-        "cloudfront_url": config.get("cloudfront_url"),
     } if config.get("enable_saml_auth") else {}),
 )
 
