@@ -14,6 +14,28 @@ const api = axios.create({
   // Note: API key is now handled securely server-side by the proxy Lambda
 });
 
+// Attach Cognito ID token to every request
+api.interceptors.request.use((config) => {
+  const idToken = sessionStorage.getItem('cognito_id_token');
+  if (idToken) {
+    config.headers.Authorization = `Bearer ${idToken}`;
+  }
+  return config;
+});
+
+// On 401, clear tokens and trigger re-auth
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      sessionStorage.removeItem('cognito_id_token');
+      sessionStorage.removeItem('cognito_access_token');
+      window.location.reload();
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const sendMessage = async (query: string, sessionId: string): Promise<ApiResponse> => {
   try {
     const response = await api.post('chat-response', {

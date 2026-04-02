@@ -4,9 +4,11 @@ import Navbar from './components/Navbar';
 import ChatArea from './components/ChatArea';
 import AboutPage from './components/AboutPage';
 import StarfieldCanvas from './components/StarfieldCanvas';
+import { useAuth } from './hooks/useAuth';
 import './index.css';
 
 function App() {
+  const { isAuthenticated, isLoading, authError } = useAuth();
   const [aboutOpen, setAboutOpen] = useState(false);
   const [currentSessionId] = useState<string>(() => crypto.randomUUID());
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -55,6 +57,36 @@ function App() {
     setAboutOpen(false);
   };
 
+
+  if (isLoading) {
+    return (
+      <>
+        {theme === 'dark' && <StarfieldCanvas />}
+        <div className="relative flex items-center justify-center h-screen text-[var(--color-text-secondary)]" style={{ zIndex: 1 }}>
+          <p className="text-sm animate-pulse">Authenticating...</p>
+        </div>
+      </>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        {theme === 'dark' && <StarfieldCanvas />}
+        {authError && (
+          <div className="relative flex flex-col items-center justify-center h-screen gap-4 text-[var(--color-text-secondary)]" style={{ zIndex: 1 }}>
+            <p className="text-sm">Authentication failed: {authError}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 text-sm rounded-lg bg-[var(--color-highlight)] text-white hover:opacity-90"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
