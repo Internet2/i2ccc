@@ -361,7 +361,7 @@ class RagBackend(Construct):
                 default_cors_preflight_options=apigw.CorsOptions(
                     allow_origins=allowed_origins,
                     allow_methods=apigw.Cors.ALL_METHODS,
-                    allow_headers=["Content-Type"],
+                    allow_headers=["Content-Type", "Authorization"],
                 ),
             )
 
