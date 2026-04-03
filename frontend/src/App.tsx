@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import ChatArea from './components/ChatArea';
 import AboutPage from './components/AboutPage';
+import PrivacyNotice from './components/PrivacyNotice';
 import StarfieldCanvas from './components/StarfieldCanvas';
 import { useAuth } from './hooks/useAuth';
 import './index.css';
@@ -10,6 +11,9 @@ import './index.css';
 function App() {
   const { isAuthenticated, isLoading, authError } = useAuth();
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(
+    () => localStorage.getItem('i2-privacy-acknowledged') === 'true'
+  );
   const [currentSessionId] = useState<string>(() => crypto.randomUUID());
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -50,6 +54,11 @@ function App() {
 
   const handleToggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleAcknowledgePrivacy = () => {
+    localStorage.setItem('i2-privacy-acknowledged', 'true');
+    setPrivacyAcknowledged(true);
   };
 
   const handleAboutQuestionSelect = (question: string) => {
@@ -123,6 +132,11 @@ function App() {
             />
           </div>
         </div>
+      )}
+
+      {/* Privacy notice modal — shown once on first visit */}
+      {!privacyAcknowledged && (
+        <PrivacyNotice onAcknowledge={handleAcknowledgePrivacy} />
       )}
 
       <Toaster
