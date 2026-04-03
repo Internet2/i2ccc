@@ -18,7 +18,7 @@ function App() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window === 'undefined') {
-      return 'dark';
+      return 'light';
     }
 
     const storedTheme = localStorage.getItem('i2-theme');
@@ -28,7 +28,7 @@ function App() {
 
     return window.matchMedia('(prefers-color-scheme: dark)').matches
       ? 'dark'
-      : 'dark';
+      : 'light';
   });
 
 
