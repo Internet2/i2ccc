@@ -20,3 +20,5 @@ config.yaml
 .claude
 
 planning-docs/
+
+.vscode
