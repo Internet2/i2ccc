@@ -118,13 +118,18 @@ function App() {
 
       {/* About modal */}
       {aboutOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={() => setAboutOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50 cursor-default border-0 appearance-none"
+            onClick={() => setAboutOpen(false)}
+            aria-label="Close about dialog"
+          />
           <div
-            className="bg-[var(--color-surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="About"
+            className="relative bg-[var(--color-surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl"
           >
             <AboutPage
               onQuestionSelect={handleAboutQuestionSelect}
