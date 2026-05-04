@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import WelcomeScreen from './WelcomeScreen';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
+import UnicodeSpinner from './UnicodeSpinner';
 import { useChat } from '../hooks/useChat';
 import { LOADING_MESSAGES } from '../data/loadingMessages';
 
@@ -208,11 +209,7 @@ export default function ChatArea({
                   role="status"
                   aria-live="polite"
                 >
-                  <div className="flex space-x-1">
-                    <div className="h-1.5 w-1.5 animate-dot-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '0ms' }}></div>
-                    <div className="h-1.5 w-1.5 animate-dot-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '150ms' }}></div>
-                    <div className="h-1.5 w-1.5 animate-dot-bounce rounded-full bg-[var(--color-loading)]" style={{ animationDelay: '300ms' }}></div>
-                  </div>
+                  <UnicodeSpinner />
                   <span
                     className={`text-[0.9375rem] font-medium leading-relaxed tracking-[-0.01em] text-[var(--color-loading)] transition-all duration-250 ease-out ${
                       isLoadingMessageVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-0.5'

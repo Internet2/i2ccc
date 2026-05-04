@@ -44,6 +44,9 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
+      unicode-animations:
+        specifier: ^1.0.3
+        version: 1.0.3
     devDependencies:
       '@axe-core/react':
         specifier: ^4.11.2
@@ -2199,6 +2202,10 @@ packages:
 
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
+
+  unicode-animations@1.0.3:
+    resolution: {integrity: sha512-+klB2oWwcYZjYWhwP4Pr8UZffWDFVx6jKeIahE6z0QYyM2dwDeDPyn5nevCYbyotxvtT9lh21cVURO1RX0+YMg==}
+    hasBin: true
 
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
@@ -4730,6 +4737,8 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@7.16.0: {}
+
+  unicode-animations@1.0.3: {}
 
   unified@11.0.5:
     dependencies:
