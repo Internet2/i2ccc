@@ -11,6 +11,9 @@ from aws_cdk import (
 from aws_cdk import (
     aws_cloudfront_origins as origins,
 )
+from aws_cdk import (
+    aws_certificatemanager as acm,
+)
 from constructs import Construct
 
 
@@ -20,6 +23,8 @@ class RagFrontend(Construct):
         scope: Construct,
         construct_id: str,
         web_acl_id: str = None,
+        domain_name: str = None,
+        certificate_arn: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -68,16 +73,14 @@ class RagFrontend(Construct):
             "compress": True,
         }
 
-        distribution = cloudfront.Distribution(
-            self,
-            "FrontendDistribution",
-            default_behavior=cloudfront.BehaviorOptions(**default_behavior_options),
-            additional_behaviors={
+        distribution_kwargs = {
+            "default_behavior": cloudfront.BehaviorOptions(**default_behavior_options),
+            "additional_behaviors": {
                 "/assets/*": cloudfront.BehaviorOptions(**assets_behavior_options)
             },
-            default_root_object="index.html",
-            web_acl_id=web_acl_id,
-            error_responses=[
+            "default_root_object": "index.html",
+            "web_acl_id": web_acl_id,
+            "error_responses": [
                 cloudfront.ErrorResponse(
                     http_status=404,
                     response_http_status=200,
@@ -91,13 +94,30 @@ class RagFrontend(Construct):
                     ttl=None,
                 ),
             ],
-            price_class=cloudfront.PriceClass.PRICE_CLASS_100,
-            comment="RAG Chatbot Frontend Distribution",
+            "price_class": cloudfront.PriceClass.PRICE_CLASS_100,
+            "comment": "RAG Chatbot Frontend Distribution",
+        }
+
+        if domain_name and certificate_arn:
+            distribution_kwargs["domain_names"] = [domain_name]
+            distribution_kwargs["certificate"] = acm.Certificate.from_certificate_arn(
+                self,
+                "FrontendCertificate",
+                certificate_arn,
+            )
+
+        distribution = cloudfront.Distribution(
+            self,
+            "FrontendDistribution",
+            **distribution_kwargs,
         )
 
         self.bucket_name = frontend_bucket.bucket_name
         self.distribution_id = distribution.distribution_id
         self.distribution_domain_name = distribution.distribution_domain_name
+        self.custom_domain_name = domain_name if (domain_name and certificate_arn) else None
+        self.public_domain_name = self.custom_domain_name or distribution.distribution_domain_name
+        self.public_url = f"https://{self.public_domain_name}"
 
         CfnOutput(
             self,
@@ -105,6 +125,14 @@ class RagFrontend(Construct):
             value=f"https://{distribution.distribution_domain_name}",
             description="CloudFront URL for the frontend application",
         )
+
+        if self.custom_domain_name:
+            CfnOutput(
+                self,
+                "CustomDomainURL",
+                value=self.public_url,
+                description="Custom domain URL for the frontend application",
+            )
 
         CfnOutput(
             self,

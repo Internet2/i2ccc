@@ -45,6 +45,9 @@ class RagChatbotStack(Stack):
         saml_idp_name: str = None,
         saml_idp_metadata_url: str = None,
         saml_attribute_mapping: dict = None,
+        # Custom domain for CloudFront (optional)
+        frontend_domain_name: str = None,
+        frontend_certificate_arn: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -71,10 +74,18 @@ class RagChatbotStack(Stack):
             self,
             "RagFrontend",
             web_acl_id=waf.web_acl_arn,
+            domain_name=frontend_domain_name,
+            certificate_arn=frontend_certificate_arn,
         )
 
         # Create Cognito SAML auth (optional — only if all required config is provided)
         if all([cognito_domain_prefix, saml_idp_name, saml_idp_metadata_url, saml_attribute_mapping]):
+            # Allow both the custom domain (primary) and the default CloudFront URL
+            # (fallback) as valid OAuth callbacks.
+            extra_callbacks = []
+            if frontend_stack.custom_domain_name:
+                extra_callbacks.append(f"https://{frontend_stack.distribution_domain_name}")
+
             CognitoSamlAuth(
                 self,
                 "CognitoSamlAuth",
@@ -82,7 +93,8 @@ class RagChatbotStack(Stack):
                 saml_idp_name=saml_idp_name,
                 saml_idp_metadata_url=saml_idp_metadata_url,
                 saml_attribute_mapping=saml_attribute_mapping,
-                cloudfront_url=f"https://{frontend_stack.distribution_domain_name}",
+                cloudfront_url=frontend_stack.public_url,
+                extra_callback_urls=extra_callbacks,
             )
 
         # Create backend stack with frontend domain for CORS configuration
@@ -108,5 +120,5 @@ class RagChatbotStack(Stack):
             top_p=top_p,
             max_tokens=max_tokens,
             api_key_value=api_key_value,
-            frontend_distribution_domain=frontend_stack.distribution_domain_name,
+            frontend_distribution_domain=frontend_stack.public_domain_name,
         )

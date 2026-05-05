@@ -32,6 +32,7 @@ class CognitoSamlAuth(Construct):
         saml_idp_metadata_url: str,
         saml_attribute_mapping: dict,
         cloudfront_url: str = None,
+        extra_callback_urls: list = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -41,11 +42,13 @@ class CognitoSamlAuth(Construct):
         callback_urls = ["http://localhost:5173"]  # local dev
         logout_urls = ["http://localhost:5173"]
 
-        if cloudfront_url:
-            # Strip trailing slash for Cognito URL registration
-            base = cloudfront_url.rstrip("/")
-            callback_urls.append(base)
-            logout_urls.append(base)
+        for url in [cloudfront_url, *(extra_callback_urls or [])]:
+            if not url:
+                continue
+            base = url.rstrip("/")
+            if base not in callback_urls:
+                callback_urls.append(base)
+                logout_urls.append(base)
 
         # ------------------------------------------------------------------
         # User Pool

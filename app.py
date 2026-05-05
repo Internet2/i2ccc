@@ -35,6 +35,9 @@ RagChatbotStack(
     top_p=float(config["top_p"]),
     max_tokens=int(config["max_tokens"]),
     api_key_value=config.get("api_key"),
+    # Custom CloudFront domain (optional — only applied if both fields are set)
+    frontend_domain_name=config.get("frontend_domain_name"),
+    frontend_certificate_arn=config.get("frontend_certificate_arn"),
     # Cognito SAML auth — only active when enable_saml_auth: true in config.yaml
     **({
         "cognito_domain_prefix": config.get("cognito_domain_prefix"),

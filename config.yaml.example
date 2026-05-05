@@ -13,6 +13,14 @@ cloudfront_password: <optional-shared-password-or-remove-to-disable>
 cloudfront_streaming_secret: <long-random-secret-string>
 
 # -------------------------
+# Custom CloudFront domain (optional)
+# Both fields must be set together. Leave commented/unset to use the default
+# *.cloudfront.net URL. The ACM certificate MUST be in us-east-1.
+# -------------------------
+# frontend_domain_name: abe.example.edu
+# frontend_certificate_arn: arn:aws:acm:us-east-1:<account-id>:certificate/<cert-id>
+
+# -------------------------
 # Cognito SAML Auth (optional)
 # Set enable_saml_auth: true and fill in the fields below to enable SAML SSO.
 # Leave enable_saml_auth: false (or omit) to skip Cognito provisioning.
