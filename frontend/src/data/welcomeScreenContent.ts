@@ -1,8 +1,8 @@
 export const welcomeScreenContent = {
   title: {
-    line1: "Welcome to the Internet2",
-    line2: "Cloud Community Assistant"
+    line1: "Welcome to Abe,",
+    line2: "Internet2's Cloud Assistant"
   },
-  subtitle: "Ask me anything about cloud infrastructure for research and education",
+  subtitle: "Ask me anything on cloud infrastructure for research and education...",
   featuredQuestionIds: ['1', '11', '8']
 };
