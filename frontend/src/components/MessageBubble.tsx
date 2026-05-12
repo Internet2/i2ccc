@@ -1,5 +1,16 @@
-import { useState } from 'react';
-import { ThumbsUp, ThumbsDown, ExternalLink, Copy } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ThumbsUp,
+  ThumbsDown,
+  ExternalLink,
+  Copy,
+  AlertCircle,
+  Clock,
+  Link2Off,
+  Search,
+  Ban,
+  HelpCircle,
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import toast from 'react-hot-toast';
@@ -11,30 +22,58 @@ interface MessageBubbleProps {
   isFirstUserMessage?: boolean;
 }
 
+const FEEDBACK_REASONS = [
+  { id: 'inaccurate', label: 'Inaccurate or incorrect', Icon: AlertCircle },
+  { id: 'outdated', label: 'Outdated information', Icon: Clock },
+  { id: 'broken_source', label: 'Source link broken', Icon: Link2Off },
+  { id: 'unsupported_by_sources', label: "Sources don't support the answer", Icon: Search },
+  { id: 'off_topic', label: "Didn't answer my question", Icon: Ban },
+  { id: 'other', label: 'Other issue', Icon: HelpCircle },
+] as const;
+
 export default function MessageBubble({ message, onFeedback, isFirstUserMessage = false }: MessageBubbleProps) {
   const [feedback, setFeedback] = useState<'thumbs_up' | 'thumbs_down' | null>(null);
-  const [showFeedbackText, setShowFeedbackText] = useState(false);
-  const [feedbackText, setFeedbackText] = useState('');
+  const [showReasonMenu, setShowReasonMenu] = useState(false);
+  const reasonMenuRef = useRef<HTMLDivElement | null>(null);
 
   const handleFeedback = (rating: 'thumbs_up' | 'thumbs_down') => {
     setFeedback(rating);
     onFeedback(message.id, rating);
-    toast.success('Thank you for your feedback!');
-    
+
     if (rating === 'thumbs_down') {
-      setShowFeedbackText(true);
+      setShowReasonMenu(true);
+    } else {
+      toast.success('Thank you for your feedback!');
     }
   };
 
-  const handleFeedbackSubmit = () => {
-    if (feedbackText.trim()) {
-      // For text feedback, we'll call with thumbs_down and include the text
-      onFeedback(message.id, 'thumbs_down', feedbackText);
-      toast.success('Thank you for the detailed feedback!');
-      setShowFeedbackText(false);
-      setFeedbackText('');
-    }
+  const handleReasonSelect = (reasonId: string) => {
+    onFeedback(message.id, 'thumbs_down', reasonId);
+    toast.success('Thanks for the details!');
+    setShowReasonMenu(false);
   };
+
+  useEffect(() => {
+    if (!showReasonMenu) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (reasonMenuRef.current && !reasonMenuRef.current.contains(event.target as Node)) {
+        setShowReasonMenu(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowReasonMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showReasonMenu]);
 
   const handleCopy = async () => {
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
@@ -151,59 +190,55 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
 
           <button
             onClick={() => handleFeedback('thumbs_up')}
-            className={`inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
-              feedback === 'thumbs_up' 
-                ? 'border-[var(--color-success)] bg-[var(--color-surface-muted)] text-[var(--color-success)]' 
-                : 'border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-success)]'
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-transparent transition-colors ${
+              feedback === 'thumbs_up'
+                ? 'bg-[var(--color-surface-muted)] text-[var(--color-text-primary)]'
+                : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-success)]'
             }`}
             aria-label="Rate response positive"
+            aria-pressed={feedback === 'thumbs_up'}
           >
             <ThumbsUp className="w-4 h-4" />
           </button>
-          
-          <button
-            onClick={() => handleFeedback('thumbs_down')}
-            className={`inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors ${
-              feedback === 'thumbs_down' 
-                ? 'border-[var(--color-error)] bg-[var(--color-surface-muted)] text-[var(--color-error)]' 
-                : 'border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-error)]'
-            }`}
-            aria-label="Rate response negative"
-          >
-            <ThumbsDown className="w-4 h-4" />
-          </button>
-        </div>
 
-        {/* Additional feedback text input */}
-        {showFeedbackText && (
-          <div className="mt-3 rounded-md bg-[var(--color-surface-muted)] p-3">
-            <label htmlFor={`feedback-${message.id}`} className="mb-2 block text-sm font-medium text-[var(--color-text-primary)]">
-              Help us improve (optional):
-            </label>
-            <textarea
-              id={`feedback-${message.id}`}
-              value={feedbackText}
-              onChange={(e) => setFeedbackText(e.target.value)}
-              placeholder="What could be better about this response?"
-              className="h-20 w-full resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]"
-              rows={3}
-            />
-            <div className="flex gap-2 mt-2">
-              <button
-                onClick={handleFeedbackSubmit}
-                className="rounded-md bg-[var(--color-highlight)] px-3 py-1 text-sm text-white transition-colors hover:bg-[var(--color-highlight-soft)]"
+          <div className="relative">
+            <button
+              onClick={() => handleFeedback('thumbs_down')}
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-md border border-transparent transition-colors ${
+                feedback === 'thumbs_down'
+                  ? 'bg-[var(--color-surface-muted)] text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-error)]'
+              }`}
+              aria-label="Rate response negative"
+              aria-pressed={feedback === 'thumbs_down'}
+              aria-haspopup="menu"
+              aria-expanded={showReasonMenu}
+            >
+              <ThumbsDown className="w-4 h-4" />
+            </button>
+
+            {showReasonMenu && (
+              <div
+                ref={reasonMenuRef}
+                role="menu"
+                aria-label="What went wrong with this response?"
+                className="absolute bottom-full left-0 z-20 mb-2 w-72 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-1.5 shadow-lg"
               >
-                Submit
-              </button>
-              <button
-                onClick={() => setShowFeedbackText(false)}
-                className="px-3 py-1 text-sm text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
-              >
-                Cancel
-              </button>
-            </div>
+                {FEEDBACK_REASONS.map(({ id, label, Icon }) => (
+                  <button
+                    key={id}
+                    role="menuitem"
+                    onClick={() => handleReasonSelect(id)}
+                    className="flex w-full items-center gap-3 rounded-xl p-2 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)]"
+                  >
+                    <Icon className="h-[19px] w-[19px] shrink-0" aria-hidden="true" />
+                    <span>{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

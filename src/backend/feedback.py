@@ -16,7 +16,19 @@ def save_feedback(session_id: str, timestamp: int, rating: str, feedback_text: s
     """Save feedback for a message."""
     table = dynamodb.Table(os.getenv("CONVERSATION_TABLE"))
     
-    if rating in ["thumbs_up", "thumbs_down"]:
+    if rating == "thumbs_up":
+        # Save thumb feedback and clear any prior thumbs-down reason
+        table.update_item(
+            Key={
+                "session_id": session_id,
+                "timestamp": timestamp
+            },
+            UpdateExpression="SET thumb_rating = :rating REMOVE feedback_text",
+            ExpressionAttributeValues={
+                ":rating": rating
+            }
+        )
+    elif rating == "thumbs_down":
         # Save thumb feedback
         table.update_item(
             Key={
