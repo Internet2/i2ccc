@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import time
 from typing import Any, Dict
 
 import boto3
@@ -29,29 +28,31 @@ def save_feedback(session_id: str, timestamp: int, rating: str, feedback_text: s
             }
         )
     elif rating == "thumbs_down":
-        # Save thumb feedback
-        table.update_item(
-            Key={
-                "session_id": session_id,
-                "timestamp": timestamp
-            },
-            UpdateExpression="SET thumb_rating = :rating",
-            ExpressionAttributeValues={
-                ":rating": rating
-            }
-        )
-    else:
-        # Save text feedback
-        table.update_item(
-            Key={
-                "session_id": session_id,
-                "timestamp": timestamp
-            },
-            UpdateExpression="SET feedback_text = :text",
-            ExpressionAttributeValues={
-                ":text": feedback_text
-            }
-        )
+        if feedback_text:
+            # Thumbs-down with a reason — record both
+            table.update_item(
+                Key={
+                    "session_id": session_id,
+                    "timestamp": timestamp
+                },
+                UpdateExpression="SET thumb_rating = :rating, feedback_text = :text",
+                ExpressionAttributeValues={
+                    ":rating": rating,
+                    ":text": feedback_text
+                }
+            )
+        else:
+            # Fresh thumbs-down without a reason yet — clear any stale reason
+            table.update_item(
+                Key={
+                    "session_id": session_id,
+                    "timestamp": timestamp
+                },
+                UpdateExpression="SET thumb_rating = :rating REMOVE feedback_text",
+                ExpressionAttributeValues={
+                    ":rating": rating
+                }
+            )
 
 
 def feedback_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
