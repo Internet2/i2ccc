@@ -6,9 +6,13 @@ export interface Message {
   sources?: Source[];
 }
 
+export type SourceBadge = 'public' | 'cicp_subscriber_only';
+
 export interface Source {
+  n: number;
   title: string;
   url: string;
+  badge: SourceBadge;
 }
 
 export interface ChatSession {

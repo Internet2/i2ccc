@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ThumbsUp,
   ThumbsDown,
-  ExternalLink,
   Copy,
   AlertCircle,
   Clock,
@@ -14,12 +13,17 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import toast from 'react-hot-toast';
-import type { Message } from '../types';
+import type { Message, Source } from '../types';
+import CitationChip from './CitationChip';
+import SourcesPill from './SourcesPill';
+import { remarkCitations, parseCitationGroupHref } from '../utils/remarkCitations';
 
 interface MessageBubbleProps {
   message: Message;
   onFeedback: (messageId: string, rating: 'thumbs_up' | 'thumbs_down', feedbackText?: string) => void;
   isFirstUserMessage?: boolean;
+  onOpenSources?: (messageId: string, sources: Source[]) => void;
+  isSourcesOpen?: boolean;
 }
 
 const FEEDBACK_REASONS = [
@@ -31,10 +35,39 @@ const FEEDBACK_REASONS = [
   { id: 'other', label: 'Other issue', Icon: HelpCircle },
 ] as const;
 
-export default function MessageBubble({ message, onFeedback, isFirstUserMessage = false }: MessageBubbleProps) {
+export default function MessageBubble({
+  message,
+  onFeedback,
+  isFirstUserMessage = false,
+  onOpenSources,
+  isSourcesOpen = false,
+}: MessageBubbleProps) {
   const [feedback, setFeedback] = useState<'thumbs_up' | 'thumbs_down' | null>(null);
   const [showReasonMenu, setShowReasonMenu] = useState(false);
   const reasonMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const sourceMap = useMemo(() => {
+    const map = new Map<number, Source>();
+    for (const source of message.sources ?? []) {
+      map.set(source.n, source);
+    }
+    return map;
+  }, [message.sources]);
+
+  const validCitationNumbers = useMemo(() => {
+    const set = new Set<number>();
+    for (const source of message.sources ?? []) {
+      set.add(source.n);
+    }
+    return set;
+  }, [message.sources]);
+
+  const remarkPluginList = useMemo(
+    () => [remarkGfm, [remarkCitations, { validNumbers: validCitationNumbers }]] as const,
+    [validCitationNumbers],
+  );
+
+  const sourceCount = message.sources?.length ?? 0;
 
   const handleFeedback = (rating: 'thumbs_up' | 'thumbs_down') => {
     setFeedback(rating);
@@ -106,8 +139,8 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
       <div className="max-w-none lg:max-w-3xl animate-chatbot-bubble-enter">
         <div className="px-4 py-3">
           <div className="max-w-none text-[var(--color-text-primary)]">
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
+            <ReactMarkdown
+              remarkPlugins={remarkPluginList as never}
               components={{
                 // Custom styling for markdown elements
                 p: ({ children }) => <p className="mt-7 mb-3 first:mt-0 last:mb-0">{children}</p>,
@@ -139,16 +172,46 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
                 h1: ({ children }) => <h1 className="mb-2 text-xl font-bold">{children}</h1>,
                 h2: ({ children }) => <h2 className="mb-2 text-lg font-semibold">{children}</h2>,
                 h3: ({ children }) => <h3 className="mb-2 text-base font-semibold">{children}</h3>,
-                a: ({ children, href }) => (
-                  <a 
-                    href={href} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="underline transition-colors duration-200 text-[var(--color-highlight)] hover:text-[var(--color-highlight-soft)]"
-                  >
-                    {children}
-                  </a>
-                ),
+                a: ({ children, href }) => {
+                  const groupNumbers = parseCitationGroupHref(href);
+                  if (groupNumbers !== null) {
+                    const groupSources = groupNumbers
+                      .map((n) => sourceMap.get(n))
+                      .filter((s): s is Source => Boolean(s));
+
+                    if (groupSources.length === 0) return null;
+
+                    const publicSources = groupSources.filter((s) => s.badge === 'public');
+                    const cicpSources = groupSources.filter((s) => s.badge === 'cicp_subscriber_only');
+
+                    const openSidebar = () => {
+                      if (message.sources && message.sources.length > 0) {
+                        onOpenSources?.(message.id, message.sources);
+                      }
+                    };
+
+                    return (
+                      <span className="ml-1.5 inline-flex items-baseline gap-1 align-baseline">
+                        {publicSources.length > 0 && (
+                          <CitationChip sources={publicSources} onChipClick={openSidebar} />
+                        )}
+                        {cicpSources.length > 0 && (
+                          <CitationChip sources={cicpSources} onChipClick={openSidebar} />
+                        )}
+                      </span>
+                    );
+                  }
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline transition-colors duration-200 text-[var(--color-highlight)] hover:text-[var(--color-highlight-soft)]"
+                    >
+                      {children}
+                    </a>
+                  );
+                },
                 code: ({ children, className }) => 
                   className ? 
                     <pre className="mb-2 overflow-x-auto rounded bg-[var(--color-surface-muted)] p-2"><code>{children}</code></pre> :
@@ -160,26 +223,8 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
           </div>
         </div>
         
-        {/* Sources */}
-        {message.sources && message.sources.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5 px-4">
-            {message.sources.map((source, index) => (
-              <a
-                key={index}
-                href={source.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="source-chip"
-              >
-                <ExternalLink className="w-2.5 h-2.5" />
-                <span>{source.title}</span>
-              </a>
-            ))}
-          </div>
-        )}
-
-        {/* Feedback Buttons */}
-        <div className="mt-0 flex items-center gap-0.5 pl-4">
+        {/* Action row: copy / feedback / sources */}
+        <div className="mt-0 flex items-center gap-1.5 pl-4">
           <button
             onClick={handleCopy}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-transparent transition-colors text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)]"
@@ -238,6 +283,16 @@ export default function MessageBubble({ message, onFeedback, isFirstUserMessage 
               </div>
             )}
           </div>
+
+          {sourceCount > 0 && message.sources && (
+            <div className="ml-1">
+              <SourcesPill
+                count={sourceCount}
+                isOpen={isSourcesOpen}
+                onClick={() => onOpenSources?.(message.id, message.sources!)}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

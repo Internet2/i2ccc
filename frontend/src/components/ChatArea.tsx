@@ -3,8 +3,10 @@ import WelcomeScreen from './WelcomeScreen';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import UnicodeSpinner from './UnicodeSpinner';
+import SourcesPanel from './SourcesPanel';
 import { useChat } from '../hooks/useChat';
 import { LOADING_MESSAGES } from '../data/loadingMessages';
+import type { Source } from '../types';
 
 const LOADING_MESSAGE_CHANGE_INTERVAL_MS = 3000;
 const LOADING_MESSAGE_FADE_DURATION_MS = 250;
@@ -46,7 +48,36 @@ export default function ChatArea({
   onInitialQuestionHandled,
 }: ChatAreaProps) {
   const { messages, isLoading, error, sendQuery, submitFeedback } = useChat(sessionId);
+  const [activeSources, setActiveSources] = useState<
+    { messageId: string; sources: Source[] } | null
+  >(null);
+  // Keeps the panel mounted briefly during the close animation.
+  const [renderedSources, setRenderedSources] = useState<
+    { messageId: string; sources: Source[] } | null
+  >(null);
   const processedInitialQuestion = useRef<string | null>(null);
+
+  // When activeSources flips to null, keep the panel mounted briefly so its
+  // close animation can play. The open case is handled synchronously in the
+  // click handler below — that way we don't render a 1-frame empty aside.
+  useEffect(() => {
+    if (activeSources) return;
+    if (!renderedSources) return;
+    const timer = window.setTimeout(() => setRenderedSources(null), 320);
+    return () => window.clearTimeout(timer);
+  }, [activeSources, renderedSources]);
+
+  const isPanelOpen = activeSources !== null;
+
+  const handleToggleSources = (messageId: string, sources: Source[]) => {
+    if (activeSources?.messageId === messageId) {
+      setActiveSources(null);
+      // Leave renderedSources alone — the effect above clears it after the animation.
+    } else {
+      setActiveSources({ messageId, sources });
+      setRenderedSources({ messageId, sources });
+    }
+  };
   const initialLoadingMessage = pickRandomLoadingMessage();
   const [loadingMessage, setLoadingMessage] = useState(initialLoadingMessage);
   const [isLoadingMessageVisible, setIsLoadingMessageVisible] = useState(false);
@@ -176,7 +207,8 @@ export default function ChatArea({
   }, [messages]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full">
+      <div className="flex h-full min-w-0 flex-1 flex-col">
       {/* Chat messages area */}
       <div
         ref={messageListRef}
@@ -197,6 +229,8 @@ export default function ChatArea({
                   message={message}
                   onFeedback={handleFeedback}
                   isFirstUserMessage={isFirstUserMessage}
+                  onOpenSources={handleToggleSources}
+                  isSourcesOpen={activeSources?.messageId === message.id}
                 />
               );
             })}
@@ -240,6 +274,33 @@ export default function ChatArea({
             disabled={isLoading}
           />
         </div>
+      </div>
+      </div>
+
+      <aside
+        aria-hidden={!isPanelOpen}
+        className={`hidden lg:block lg:h-full lg:flex-shrink-0 lg:overflow-hidden lg:transition-[width] lg:duration-300 lg:ease-out ${
+          isPanelOpen ? 'lg:w-96' : 'lg:w-0'
+        }`}
+      >
+        {renderedSources && (
+          <SourcesPanel
+            sources={renderedSources.sources}
+            isOpen={isPanelOpen}
+            onClose={() => setActiveSources(null)}
+          />
+        )}
+      </aside>
+
+      {/* Mobile panel — fixed overlay, slide-in via transform */}
+      <div className="lg:hidden">
+        {renderedSources && (
+          <SourcesPanel
+            sources={renderedSources.sources}
+            isOpen={isPanelOpen}
+            onClose={() => setActiveSources(null)}
+          />
+        )}
       </div>
     </div>
   );
