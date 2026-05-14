@@ -4,7 +4,8 @@ import os
 import re
 import time
 import uuid
-from typing import Any, Dict, List, Optional, Set, Tuple
+from decimal import Decimal
+from typing import Any, Dict, List, Optional, Tuple
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -48,12 +49,33 @@ def get_conversation_history(session_id: str) -> List[Dict[str, str]]:
     return list(reversed(messages[-max_turns:]))
 
 
+def _prepare_for_dynamodb(value: Any) -> Any:
+    """Recursively clean a value tree for DynamoDB put_item:
+    - drop None values and empty strings (rejected by the high-level Table API)
+    - convert floats to Decimal (DynamoDB has no float type)
+
+    Returns a new structure; does not mutate the input.
+    """
+    if isinstance(value, dict):
+        return {
+            k: _prepare_for_dynamodb(v)
+            for k, v in value.items()
+            if v is not None and v != ""
+        }
+    if isinstance(value, list):
+        return [_prepare_for_dynamodb(v) for v in value if v is not None]
+    if isinstance(value, float):
+        return Decimal(str(value))
+    return value
+
+
 def save_message(
     session_id: str,
     role: str,
     content: str,
     document_ids: List[str] = None,
     conversation_turn: str = None,
+    sources: Optional[List[Dict[str, Any]]] = None,
 ) -> int:
     """Save a message to conversation history and return timestamp."""
     table = dynamodb.Table(os.getenv("CONVERSATION_TABLE"))
@@ -71,6 +93,9 @@ def save_message(
 
     if conversation_turn:
         item["conversation_turn"] = conversation_turn
+
+    if sources:
+        item["sources"] = _prepare_for_dynamodb(sources)
 
     table.put_item(Item=item)
     return timestamp
@@ -222,128 +247,98 @@ def process_text(
     text: str,
     uuid_mapping: Dict[str, Dict[str, Any]],
     metadata_mapping: Dict[str, Dict[str, Any]],
-) -> str:
-    """Replaces uuids with urls for sources using provided mappings.
-       If there is an invalid angle bracket <too short> or <too long> we simply remove them.
+) -> Tuple[str, List[Dict[str, Any]]]:
+    """Rewrite <uuid> citations to [[n]] tokens and build a structured source list.
+
+    The LLM is instructed to cite using <uuid> tokens (8-hex-char ids generated
+    fresh per request). This function rewrites each <uuid> to [[n]] where n is a
+    1-indexed reference number assigned in order of first appearance of each
+    unique source URL. Repeated citations to the same URL reuse the same n
+    (Perplexity-style dedup).
+
+    Unknown UUIDs (LLM hallucinations or format mismatches) are silently stripped
+    by the trailing cleanup regex, preserving the existing fail-closed behavior.
 
     Args:
-        text (str): Input text containing UUID references in format <uuid>
+        text (str): LLM response containing <uuid> tokens.
         uuid_mapping (Dict[str, Dict[str, Any]]): Mapping of UUIDs to source URLs
-            Format: {"uuid": {"source_url": "url"}}
+            Format: {"uuid": {"source_url": "url", ...}}
         metadata_mapping (Dict[str, Dict[str, Any]]): Mapping of UUIDs to metadata
             Format: {"uuid": {"title": str, "doc_type": str, "start_time": str,
-                            "member_content_flag": str}}
+                              "member_content_flag": str}}
 
     Returns:
-        Text (str): The text with uuids substituted
+        Tuple[str, List[Dict[str, Any]]]:
+            - text with <uuid> replaced by [[n]] tokens; unknown angle-bracket
+              content stripped.
+            - ordered list of source dicts with shape:
+                {"n": int, "title": str, "url": str,
+                 "badge": "public" | "cicp_subscriber_only",
+                 "doc_type": str, "start_time": Optional[int]}
 
     Example:
-        >>> text = "This is a response with a source <sja84nak>"
-        >>> uuid_mapping = {"sja84nak": {"source_url": "example.com}}
-        >>> metadata_mapping = {"sja84nak": {"title": "example_website", "member_content_flag": "false"}}
-        >>> print(process_text(text, uuid_mapping, metadata_mapping))
-        >>> "This is a response with a source [example_website](example.com) — _[Public]_"
+        >>> text = "Per the Q4 review <ab12cd34>, growth was strong <ab12cd34>."
+        >>> uuid_mapping = {"ab12cd34": {"source_url": "example.com",
+        ...                              "doc_type": "document"}}
+        >>> metadata_mapping = {"ab12cd34": {"title": "Q4 Review",
+        ...                                  "doc_type": "document",
+        ...                                  "member_content_flag": "false"}}
+        >>> process_text(text, uuid_mapping, metadata_mapping)
+        ('Per the Q4 review [[1]], growth was strong [[1]].',
+         [{'n': 1, 'title': 'Q4 Review', 'url': 'example.com',
+           'badge': 'public', 'doc_type': 'document', 'start_time': None}])
     """
 
     uuid_pattern = r"<([a-f0-9]{8})>"
+
+    url_to_n: Dict[str, int] = {}
+    sources: List[Dict[str, Any]] = []
 
     def replace_uuid(match: re.Match[str]) -> str:
         uuid_match = match.group(1)
         source_data = uuid_mapping.get(uuid_match)
         metadata_info = metadata_mapping.get(uuid_match)
 
-        if source_data and metadata_info:
-            source_url = source_data["source_url"]
-            doc_type = metadata_info["doc_type"]
-            start_time = metadata_info.get("start_time")
-            is_member = metadata_info["member_content_flag"]
-            title = metadata_info["title"]
+        if not (source_data and metadata_info):
+            # Unknown UUID: leave for the cleanup regex below to strip
+            return match.group(0)
 
-            # Create member content badge
-            badge = "[CICP-subscriber-only]" if is_member == "true" else "[Public]"
+        source_url = source_data["source_url"]
+        doc_type = metadata_info["doc_type"]
+        start_time = metadata_info.get("start_time")
+        is_member = metadata_info["member_content_flag"]
+        title = metadata_info["title"]
 
-            # Add timestamp for video/audio content
-            if doc_type in ["video", "podcast"] and start_time:
-                url_with_timestamp = f"{source_url}#t={start_time}"
-                return f"[{title}]({url_with_timestamp}) — _{badge}_"
-            else:
-                return f"[{title}]({source_url}) — _{badge}_"
-        return match.group(
-            0
-        )  # Return the original match if UUID not found in mappings
+        if doc_type in ["video", "podcast"] and start_time:
+            url = f"{source_url}#t={start_time}"
+        else:
+            url = source_url
 
-    # Process valid UUIDs first
+        n = url_to_n.get(url)
+        if n is None:
+            n = len(sources) + 1
+            url_to_n[url] = n
+            sources.append(
+                {
+                    "n": n,
+                    "title": title,
+                    "url": url,
+                    "badge": "cicp_subscriber_only"
+                    if is_member == "true"
+                    else "public",
+                    "doc_type": doc_type,
+                    "start_time": start_time,
+                }
+            )
+
+        return f"[[{n}]]"
+
     text = re.sub(uuid_pattern, replace_uuid, text)
 
-    # Then remove any remaining angle brackets and their contents
+    # Strip any remaining angle-bracket content (unknown UUIDs or malformed tokens)
     text = re.sub(r"<[^>]*>", "", text)
 
-    return text
-
-
-def add_meeting_list(
-    text: str, metadata_mapping: Dict[str, Dict[str, Any]]
-) -> str:
-    """Add formatted meeting list to end of text based on UUIDs referenced.
-
-    Args:
-        text (str): Input text containing UUID references in format <uuid>
-        metadata_mapping (Dict[str, Dict[str, Any]]): Mapping of UUIDs to metadata
-            Format: {"uuid": {
-                "parent_folder_name": str,
-                "parent_folder_url": str,
-                "member_content_flag": str
-            }}
-
-    Returns:
-        str: Original text with appended meeting list in markdown format.
-                If meetings are found, adds a section "Meetings referenced:"
-                followed by formatted links with content badges.
-
-    Example:
-        >>> text = "Discussion from meeting <12345678>"
-        >>> metadata_mapping = {
-            "12345678": {
-                "parent_folder_name": "Q4 Review",
-                "parent_folder_url": "https://example.com/meetings/q4",
-                "member_content_flag": "false"
-            }
-        >>> result = add_meeting_list(text, metadata_mapping)
-        >>> print(result)
-        Passed in text with source <12345678>
-
-        **Meetings referenced:**
-        - [Q4 Review](https://example.com/meetings/q4) — *[Public]*
-    """
-
-    meetings: Set[Tuple[str, str]] = set()
-
-    # Extract UUIDs that appear in the LLM response
-    uuid_pattern = r"([a-f0-9]{8})"
-    referenced_uuids = set(re.findall(uuid_pattern, text))
-
-    # Only include meetings for UUIDs that were referenced in the response
-    for uuid_match in referenced_uuids:
-        metadata = metadata_mapping.get(uuid_match, {})
-        parent_folder_name = metadata.get("parent_folder_name", "")
-        parent_folder_url = metadata.get("parent_folder_url", "")
-        member_content = metadata.get("member_content_flag", "")
-        if parent_folder_name and parent_folder_url:
-            meetings.add(
-                (parent_folder_name, parent_folder_url, member_content)
-            )
-
-    if meetings:
-        text += "\n\n**Meetings referenced:**\n"
-        for folder_name, meeting_url, member_content in sorted(meetings):
-            badge = (
-                "*[CICP-subscriber-only]*"
-                if member_content == "true"
-                else "*[Public]*"
-            )
-            text += f"- [{folder_name}]({meeting_url}) — {badge}\n"
-
-    return text
+    return text, sources
 
 
 def format_documents_for_llm(
@@ -531,14 +526,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"Model: {model_response}")
 
-        # Add meeting list at the bottom
-        meeting_response: str = add_meeting_list(
-            model_response, metadata_mapping
-        )
-
-        # Use source mapping and metadata mapping for text processing
-        final_response: str = process_text(
-            meeting_response, source_mapping, metadata_mapping
+        # Replace <uuid> tokens with [[n]] numbered citations and collect sources.
+        final_response, sources = process_text(
+            model_response, source_mapping, metadata_mapping
         )
 
         # Extract document IDs for storage
@@ -555,6 +545,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             final_response,
             document_ids,
             conversation_turn,
+            sources=sources,
         )
 
         return {
@@ -564,6 +555,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "response": final_response,
                     "session_id": session_id,
                     "timestamp": assistant_timestamp,
+                    "sources": sources,
                 }
             ),
         }
