@@ -89,6 +89,24 @@ export default function ChatArea({
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const previousMessageCountRef = useRef(0);
 
+  const hasMessages = messages.length > 0;
+  const [welcomeRendered, setWelcomeRendered] = useState(!hasMessages);
+  const [welcomeVisible, setWelcomeVisible] = useState(!hasMessages);
+
+  useEffect(() => {
+    if (!hasMessages) {
+      setWelcomeRendered(true);
+      setWelcomeVisible(true);
+      return;
+    }
+
+    if (!welcomeVisible) return;
+
+    setWelcomeVisible(false);
+    const timer = window.setTimeout(() => setWelcomeRendered(false), 350);
+    return () => window.clearTimeout(timer);
+  }, [hasMessages, welcomeVisible]);
+
   const handleSendMessage = async (query: string) => {
     await sendQuery(query);
   };
@@ -212,11 +230,18 @@ export default function ChatArea({
       {/* Chat messages area */}
       <div
         ref={messageListRef}
-        className={`flex-1 p-4 ${messages.length > 0 ? 'overflow-y-auto' : 'overflow-hidden'}`}
+        className={`relative flex-1 p-4 ${hasMessages ? 'overflow-y-auto' : 'overflow-hidden'}`}
       >
-        {messages.length === 0 ? (
-          <WelcomeScreen onQuestionSelect={handleQuestionSelect} />
-        ) : (
+        {welcomeRendered && (
+          <div
+            className={`absolute inset-0 p-4 transition-opacity duration-300 ease-out ${
+              welcomeVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            <WelcomeScreen onQuestionSelect={handleQuestionSelect} />
+          </div>
+        )}
+        {hasMessages && (
           <div className="mx-auto max-w-4xl space-y-6">
             {messages.map((message, index) => {
               // Find if this is the first user message
