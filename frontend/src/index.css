@@ -150,6 +150,22 @@
     transform: scale(0.992);
   }
 
+  .glass-card.is-lifting,
+  .glass-card.is-lifting:hover {
+    transform: translateY(-6px) scale(1.025);
+    box-shadow: var(--glass-inset), var(--shadow-lg);
+    border-color: rgba(0, 113, 227, 0.30);
+    transition:
+      transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 220ms var(--ease-out),
+      border-color 200ms ease;
+  }
+
+  .dark .glass-card.is-lifting,
+  .dark .glass-card.is-lifting:hover {
+    border-color: rgba(10, 132, 255, 0.35);
+  }
+
   .dark .glass-card {
     background: rgba(255, 255, 255, 0.04);
     border-color: rgba(255, 255, 255, 0.07);
@@ -413,6 +429,21 @@
 
   .animate-chatbot-bubble-enter {
     animation: chatbot-bubble-enter 380ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  @keyframes user-bubble-enter {
+    0% {
+      opacity: 0;
+      transform: translateY(12px) scale(0.97);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-user-bubble-enter {
+    animation: user-bubble-enter 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
 
   @keyframes fadeIn {
