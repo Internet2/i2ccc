@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { exampleQuestions } from '../data/exampleQuestions';
 import { welcomeScreenContent } from '../data/welcomeScreenContent';
+import { useOnboarding, onboardingStore } from '../hooks/useOnboarding';
 
 interface WelcomeScreenProps {
   onQuestionSelect: (question: string) => void;
@@ -9,6 +10,7 @@ interface WelcomeScreenProps {
 const LIFT_DURATION_MS = 180;
 
 export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) {
+  const { isActive: isTourActive } = useOnboarding();
   const [liftedIndex, setLiftedIndex] = useState<number | null>(null);
 
   const featuredQuestions = welcomeScreenContent.featuredQuestionIds
@@ -23,6 +25,9 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
   const handleQuestionClick = (question: string, index: number) => {
     if (liftedIndex !== null) return;
     setLiftedIndex(index);
+    if (isTourActive) {
+      onboardingStore.notifyQuestionClicked();
+    }
     window.setTimeout(() => onQuestionSelect(question), LIFT_DURATION_MS);
   };
 
@@ -40,7 +45,7 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
         </div>
 
         {/* Featured question cards */}
-        <div className="grid w-full gap-3">
+        <div data-tour="sample-questions" className="grid w-full gap-3">
           {featuredQuestions.map((question, index) => (
             <button
               key={index}

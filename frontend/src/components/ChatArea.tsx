@@ -230,6 +230,7 @@ export default function ChatArea({
       {/* Chat messages area */}
       <div
         ref={messageListRef}
+        data-tour-scroll
         className={`relative flex-1 p-4 ${hasMessages ? 'overflow-y-auto' : 'overflow-hidden'}`}
       >
         {welcomeRendered && (
@@ -264,6 +265,7 @@ export default function ChatArea({
             {isLoading && (
               <div className="flex justify-start">
                 <div
+                  data-tour="loading-message"
                   className="flex items-center gap-3 px-1 py-2"
                   role="status"
                   aria-live="polite"
@@ -303,6 +305,7 @@ export default function ChatArea({
       </div>
 
       <aside
+        data-tour-interactive
         aria-hidden={!isPanelOpen}
         className={`hidden lg:block lg:h-full lg:flex-shrink-0 lg:overflow-hidden lg:transition-[width] lg:duration-300 lg:ease-out ${
           isPanelOpen ? 'lg:w-96' : 'lg:w-0'
