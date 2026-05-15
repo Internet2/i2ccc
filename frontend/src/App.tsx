@@ -131,7 +131,7 @@ function App() {
             role="dialog"
             aria-modal="true"
             aria-label="About"
-            className="relative bg-[var(--color-surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl"
+            className="relative flex flex-col bg-[var(--color-surface)] rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl"
           >
             <AboutPage
               onQuestionSelect={handleAboutQuestionSelect}

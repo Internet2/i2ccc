@@ -60,7 +60,7 @@ export default function SourcesPanel({ sources, isOpen, onClose }: SourcesPanelP
           type="button"
           onClick={onClose}
           aria-label="Close sources panel"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-highlight)]/40"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[var(--color-text-secondary)] transition-colors hover:bg-black/5 hover:text-[var(--color-text-primary)] dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-highlight)]/40"
         >
           <X className="h-4 w-4" />
         </button>
