@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import ChatArea from './components/ChatArea';
 import AboutPage from './components/AboutPage';
+import OnboardingTour from './components/OnboardingTour';
 import PrivacyNotice from './components/PrivacyNotice';
 import StarfieldCanvas from './components/StarfieldCanvas';
 import { useAuth } from './hooks/useAuth';
@@ -26,9 +27,7 @@ function App() {
       return storedTheme;
     }
 
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light';
+    return 'light';
   });
 
 
@@ -118,7 +117,10 @@ function App() {
 
       {/* About modal */}
       {aboutOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          data-tour-interactive
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
           <button
             type="button"
             className="absolute inset-0 bg-black/50 cursor-default border-0 appearance-none"
@@ -143,6 +145,9 @@ function App() {
       {!privacyAcknowledged && (
         <PrivacyNotice onAcknowledge={handleAcknowledgePrivacy} />
       )}
+
+      {/* Onboarding tour — waits until privacy notice has been acknowledged so the two modals don't overlap */}
+      {privacyAcknowledged && <OnboardingTour />}
 
       <Toaster
         position="top-right"

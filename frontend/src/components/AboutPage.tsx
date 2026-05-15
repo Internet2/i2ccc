@@ -1,6 +1,7 @@
-import { X } from 'lucide-react';
+import { PlayCircle, X } from 'lucide-react';
 import { exampleQuestions } from '../data/exampleQuestions';
 import { aboutPageContent } from '../data/aboutPageContent';
+import { onboardingStore } from '../hooks/useOnboarding';
 
 interface AboutPageProps {
   onQuestionSelect: (question: string) => void;
@@ -8,6 +9,11 @@ interface AboutPageProps {
 }
 
 export default function AboutPage({ onQuestionSelect, onClose }: AboutPageProps) {
+  const handleReplayTour = () => {
+    onClose();
+    onboardingStore.restart();
+  };
+
   const featuredQuestions = aboutPageContent.sections.featuredQuestions.questionIds
     .map((id) => exampleQuestions.find((question) => question.id === id)?.question)
     .filter((question): question is string => Boolean(question));
@@ -160,6 +166,17 @@ export default function AboutPage({ onQuestionSelect, onClose }: AboutPageProps)
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={handleReplayTour}
+              className="inline-flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-text-primary)]"
+            >
+              <PlayCircle className="h-4 w-4" />
+              Replay onboarding tour
+            </button>
           </div>
         </section>
       </div>

@@ -38,7 +38,7 @@ export default function ChatInput({ onSendMessage, disabled = false }: ChatInput
   const canSend = !!message.trim() && !disabled;
 
   return (
-    <div className="space-y-2">
+    <div data-tour-interactive className="space-y-2">
       <div className="glass-input flex items-end gap-3 rounded-xl px-4 py-3">
         <textarea
           ref={textareaRef}

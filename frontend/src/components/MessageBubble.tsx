@@ -69,6 +69,44 @@ export default function MessageBubble({
 
   const sourceCount = message.sources?.length ?? 0;
 
+  // After the message commits to the DOM, tag one Public and one CICP
+  // citation chip with `data-tour` attributes so the onboarding tour can
+  // anchor steps to them. We pick the chip whose vertical center is closest
+  // to the geometric middle of the response container — that way, when
+  // driver.js scrolls the chip into view, there's roughly equal text above
+  // and below it. The hover card (which prefers `side="top"`) gets room
+  // above, and the tour popover (`side: "bottom"`) gets room below — they
+  // stack cleanly instead of fighting over the same axis.
+  //
+  // Doing this in an effect (not during render) keeps the render pure —
+  // required because React 18 StrictMode double-invokes function components
+  // and any closure-captured mutation produces flaky results.
+  const responseBodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = responseBodyRef.current;
+    if (!root) return;
+    // Clear stale markers in case streaming added more chips since the last
+    // run — otherwise multiple chips can end up with the same `data-tour`.
+    root
+      .querySelectorAll('[data-tour="citation-public"], [data-tour="citation-cicp"]')
+      .forEach((el) => el.removeAttribute('data-tour'));
+    const chips = Array.from(root.querySelectorAll<HTMLButtonElement>('button[aria-label*="citation"]'));
+    const publicChips = chips.filter((c) => (c.getAttribute('aria-label') ?? '').startsWith('Public'));
+    const cicpChips = chips.filter((c) => (c.getAttribute('aria-label') ?? '').startsWith('CICP'));
+    const rootRect = root.getBoundingClientRect();
+    const rootCenterY = rootRect.top + rootRect.height / 2;
+    const distFromCenter = (chip: HTMLButtonElement) => {
+      const r = chip.getBoundingClientRect();
+      return Math.abs(r.top + r.height / 2 - rootCenterY);
+    };
+    const pickClosestToCenter = (group: HTMLButtonElement[]) =>
+      group.length === 0
+        ? null
+        : group.reduce((best, cur) => (distFromCenter(cur) < distFromCenter(best) ? cur : best));
+    pickClosestToCenter(publicChips)?.setAttribute('data-tour', 'citation-public');
+    pickClosestToCenter(cicpChips)?.setAttribute('data-tour', 'citation-cicp');
+  });
+
   const handleFeedback = (rating: 'thumbs_up' | 'thumbs_down') => {
     setFeedback(rating);
     onFeedback(message.id, rating);
@@ -136,7 +174,7 @@ export default function MessageBubble({
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-none lg:max-w-3xl animate-chatbot-bubble-enter">
+      <div ref={responseBodyRef} data-tour="response-body" className="max-w-none lg:max-w-3xl animate-chatbot-bubble-enter">
         <div className="px-4 py-3">
           <div className="max-w-none text-[var(--color-text-primary)]">
             <ReactMarkdown
@@ -285,7 +323,7 @@ export default function MessageBubble({
           </div>
 
           {sourceCount > 0 && message.sources && (
-            <div className="ml-1">
+            <div data-tour-interactive className="ml-1">
               <SourcesPill
                 count={sourceCount}
                 isOpen={isSourcesOpen}

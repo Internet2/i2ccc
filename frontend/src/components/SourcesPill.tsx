@@ -12,6 +12,7 @@ export default function SourcesPill({ count, isOpen = false, onClick }: SourcesP
   return (
     <button
       type="button"
+      data-tour="sources-pill"
       onClick={onClick}
       aria-expanded={isOpen}
       aria-label={`Show ${count} ${count === 1 ? 'source' : 'sources'}`}
