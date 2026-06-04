@@ -1,4 +1,3 @@
-import { Info } from 'lucide-react';
 import internet2Black from '../assets/internet2-black.png';
 import internet2White from '../assets/internet2-white.png';
 import ThemeToggle from './ThemeToggle';
@@ -26,16 +25,17 @@ export default function Navbar({ theme, onToggleTheme, onOpenAbout }: NavbarProp
         />
       </a>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center">
         <button
           data-tour="about-link"
           onClick={onOpenAbout}
           className="nav-btn"
         >
-          <Info className="h-3.5 w-3.5" />
           <span>About</span>
         </button>
+        <span aria-hidden="true" className="nav-sep">·</span>
         <TourToggle />
+        <span aria-hidden="true" className="nav-sep">·</span>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </div>
     </nav>

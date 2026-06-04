@@ -1,4 +1,3 @@
-import { GraduationCap } from 'lucide-react';
 import { useOnboarding } from '../hooks/useOnboarding';
 
 const LABEL_BY_STATUS: Record<string, string> = {
@@ -29,7 +28,6 @@ export default function TourToggle() {
       aria-pressed={isActive}
       className="nav-btn relative"
     >
-      <GraduationCap className="h-3.5 w-3.5" />
       <span>Tour</span>
       {isActive && (
         <span

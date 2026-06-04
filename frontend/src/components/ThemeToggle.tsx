@@ -1,5 +1,3 @@
-import { Moon, Sun } from 'lucide-react';
-
 interface ThemeToggleProps {
   theme: 'light' | 'dark';
   onToggle: () => void;
@@ -18,9 +16,7 @@ export default function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
       aria-label={label}
       className="theme-toggle"
     >
-      <span className="sr-only">Toggle dark mode</span>
-      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-      <span className="relative hidden sm:inline-block">
+      <span className="relative inline-block">
         <span className="invisible select-none" aria-hidden="true">Light mode</span>
         <span className="absolute inset-0 flex items-center justify-center">{isDark ? 'Light mode' : 'Dark mode'}</span>
       </span>
