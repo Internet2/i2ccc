@@ -279,12 +279,13 @@
     font-size: 0.8125rem;
     font-weight: 400;
     letter-spacing: -0.01em;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
   }
 
   .nav-btn:hover {
     background-color: rgba(0, 0, 0, 0.05);
     color: var(--color-text-primary);
+    transform: translateY(-1px);
   }
 
   .dark .nav-btn:hover {
@@ -295,6 +296,15 @@
   .nav-btn:focus-visible {
     outline: 2px solid var(--color-highlight);
     outline-offset: 2px;
+  }
+
+  /* ── Nav separator ── */
+  .nav-sep {
+    color: var(--color-text-secondary);
+    opacity: 0.4;
+    font-size: 0.8125rem;
+    user-select: none;
+    pointer-events: none;
   }
 
   /* ── Theme toggle ── */
@@ -311,12 +321,13 @@
     font-size: 0.8125rem;
     font-weight: 400;
     letter-spacing: -0.01em;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
   }
 
   .theme-toggle:hover {
     background-color: rgba(0, 0, 0, 0.05);
     color: var(--color-text-primary);
+    transform: translateY(-1px);
   }
 
   .dark .theme-toggle:hover {
