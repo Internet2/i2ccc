@@ -37,7 +37,7 @@ export default function WelcomeScreen({ onQuestionSelect }: WelcomeScreenProps) 
         {/* Welcome heading */}
         <div className="animate-fadeInUp space-y-3">
           <h1 className="text-[1.75rem] lg:text-[2.5rem] font-bold leading-[1.07] tracking-[-0.025em] text-[var(--color-text-primary)]">
-            {welcomeScreenContent.title.line1}<br />{welcomeScreenContent.title.line2}
+            {welcomeScreenContent.title.line1}<br />
           </h1>
           <p className="text-[0.9375rem] lg:text-[1.0625rem] text-[var(--color-text-secondary)] leading-relaxed tracking-[-0.01em] max-w-lg mx-auto">
             {welcomeScreenContent.subtitle}
