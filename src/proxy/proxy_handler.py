@@ -102,6 +102,38 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             })
         }
 
+    if not isinstance(request_data, dict):
+        return {
+            'statusCode': 400,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': 'Request body must be a JSON object'
+            })
+        }
+
+    # Inject the authenticated caller's identity from the validated JWT claims.
+    # The Cognito authorizer on the proxy API guarantees these claims are present
+    # for any request that reaches here. Overwrite any client-supplied value so a
+    # caller cannot spoof another user's identity — the backend trusts owner_sub
+    # only because it arrives via this keyed, authenticated hop.
+    claims = (event.get('requestContext', {}).get('authorizer') or {}).get('claims') or {}
+    caller_sub = claims.get('sub')
+    if not caller_sub:
+        return {
+            'statusCode': 401,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
+            'body': json.dumps({
+                'error': 'Unauthorized'
+            })
+        }
+    request_data['owner_sub'] = caller_sub
+
     # Forward the request to the backend API with the API key
     try:
         print(f"Forwarding request to: {full_url}")
