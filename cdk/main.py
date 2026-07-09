@@ -79,6 +79,7 @@ class RagChatbotStack(Stack):
         )
 
         # Create Cognito SAML auth (optional — only if all required config is provided)
+        auth = None
         if all([cognito_domain_prefix, saml_idp_name, saml_idp_metadata_url, saml_attribute_mapping]):
             # Allow both the custom domain (primary) and the default CloudFront URL
             # (fallback) as valid OAuth callbacks.
@@ -86,7 +87,7 @@ class RagChatbotStack(Stack):
             if frontend_stack.custom_domain_name:
                 extra_callbacks.append(f"https://{frontend_stack.distribution_domain_name}")
 
-            CognitoSamlAuth(
+            auth = CognitoSamlAuth(
                 self,
                 "CognitoSamlAuth",
                 cognito_domain_prefix=cognito_domain_prefix,
@@ -121,4 +122,5 @@ class RagChatbotStack(Stack):
             max_tokens=max_tokens,
             api_key_value=api_key_value,
             frontend_distribution_domain=frontend_stack.public_domain_name,
+            user_pool=auth.user_pool if auth else None,
         )
