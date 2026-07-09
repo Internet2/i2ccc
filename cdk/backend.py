@@ -47,6 +47,7 @@ class RagBackend(Construct):
         max_tokens: int = 4096,
         api_key_value: str = None,
         frontend_distribution_domain: str = None,
+        user_pool=None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -368,15 +369,32 @@ class RagBackend(Construct):
             # Create /api resource
             api_resource = proxy_api.root.add_resource("api")
 
+            # Cognito authorizer — validates the JWT (signature, issuer, expiry)
+            # at the gateway, before the proxy Lambda runs. Optional so deploys
+            # without SAML config still work.
+            method_auth = {}
+            if user_pool is not None:
+                authorizer = apigw.CognitoUserPoolsAuthorizer(
+                    self, "ChatProxyAuthorizer", cognito_user_pools=[user_pool]
+                )
+                method_auth = {
+                    "authorizer": authorizer,
+                    "authorization_type": apigw.AuthorizationType.COGNITO,
+                }
+
             # Create /api/chat-response resource
             chat_proxy_resource = api_resource.add_resource("chat-response")
             chat_proxy_integration = apigw.LambdaIntegration(proxy_lambda, proxy=True)
-            chat_proxy_resource.add_method("POST", chat_proxy_integration, api_key_required=False)
+            chat_proxy_resource.add_method(
+                "POST", chat_proxy_integration, api_key_required=False, **method_auth
+            )
 
             # Create /api/feedback resource
             feedback_proxy_resource = api_resource.add_resource("feedback")
             feedback_proxy_integration = apigw.LambdaIntegration(proxy_lambda, proxy=True)
-            feedback_proxy_resource.add_method("POST", feedback_proxy_integration, api_key_required=False)
+            feedback_proxy_resource.add_method(
+                "POST", feedback_proxy_integration, api_key_required=False, **method_auth
+            )
 
             # Store proxy API URL for output
             self.proxy_api_url = proxy_api.url
