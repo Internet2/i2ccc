@@ -157,16 +157,14 @@ python run_step_function.py --reset-cache    # forget previously-processed files
 ### Check ingestion progress
 
 ```bash
-./check_processing_status.sh
+./scripts/check_processing_status.sh
 ```
 
 Reports files in DynamoDB, recently processed files, files in S3, and the remaining backlog.
 
 ### Test the chatbot
 
-- **Production frontend** — the CloudFront or custom-domain URL.
-- **CLI** — `python chat_test.py`
-- **Streamlit (legacy)** — `streamlit run chat_frontend.py`
+Use the production frontend — the CloudFront or custom-domain URL.
 
 Response quality improves as more documents finish ingestion; partial answers are expected during the initial run.
 
