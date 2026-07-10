@@ -6,6 +6,7 @@ from constructs import Construct
 
 from .auth import CognitoSamlAuth
 from .backend import RagBackend
+from .content_sync import ContentSync
 from .frontend import RagFrontend
 from .ingest import RagIngest
 from .waf import Waf
@@ -48,6 +49,8 @@ class RagChatbotStack(Stack):
         # Custom domain for CloudFront (optional)
         frontend_domain_name: str = None,
         frontend_certificate_arn: str = None,
+        # Email for content-sync run notifications (optional)
+        notification_email: str = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -123,4 +126,16 @@ class RagChatbotStack(Stack):
             api_key_value=api_key_value,
             frontend_distribution_domain=frontend_stack.public_domain_name,
             user_pool=auth.user_pool if auth else None,
+        )
+
+        # One-command content collection: collector Fargate task -> data
+        # ingestion state machine -> email notification
+        ContentSync(
+            self,
+            "ContentSync",
+            cluster=ingest_stack.cluster,
+            vpc=ingest_stack.vpc,
+            input_assets_bucket=ingest_stack.input_assets_bucket,
+            ingestion_state_machine=ingest_stack.state_machine,
+            notification_email=notification_email,
         )

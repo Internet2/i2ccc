@@ -58,6 +58,10 @@ confluence_urls:
 google_drive_download_dir: "google_drive_downloads"
 skip_existing_s3_files: true
 
+# Email address that receives content-sync run notifications (optional).
+# The SNS subscription must be confirmed once via the email AWS sends.
+# notification_email: you@example.edu
+
 # Chat
 file_input_folder: files-to-process/
 bucket_image_folder: image_store/

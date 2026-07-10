@@ -38,6 +38,8 @@ RagChatbotStack(
     # Custom CloudFront domain (optional — only applied if both fields are set)
     frontend_domain_name=config.get("frontend_domain_name"),
     frontend_certificate_arn=config.get("frontend_certificate_arn"),
+    # Email address for content-sync run notifications (optional)
+    notification_email=config.get("notification_email"),
     # Cognito SAML auth — only active when enable_saml_auth: true in config.yaml
     **({
         "cognito_domain_prefix": config.get("cognito_domain_prefix"),
