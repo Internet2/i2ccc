@@ -2,7 +2,6 @@ from aws_cdk import (
     CfnOutput,
     Duration,
     RemovalPolicy,
-    Size,
 )
 from aws_cdk import (
     aws_ec2 as ec2,
