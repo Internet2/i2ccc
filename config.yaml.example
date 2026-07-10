@@ -5,7 +5,8 @@ s3_bucket_name: <your-s3-bucket-name>
 step_function_arn: arn:aws:states:us-east-1:<account-id>:stateMachine:<state-machine-name>
 processed_files_table: <your-dynamodb-table-name>
 
-api_key: <your-api-gateway-key>
+# The API Gateway key is NOT configured here - the deploy generates it and
+# publishes it to SSM at /chatbot/api-key; clients read it from there.
 aws_region: us-east-1
 
 # -------------------------

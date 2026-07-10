@@ -1,4 +1,5 @@
 import json
+import boto3
 import requests
 import streamlit as st
 import uuid
@@ -8,7 +9,10 @@ config = yaml.safe_load(open("./config.yaml"))
 
 API_URL = config["rag_api_endpoint"] + "chat-response"
 FEEDBACK_URL = config["rag_api_endpoint"] + "feedback"
-API_KEY = config["api_key"]
+# The deploy publishes the generated API key to SSM (single source of truth)
+API_KEY = boto3.client("ssm", region_name=config.get("aws_region", "us-east-1")).get_parameter(
+    Name="/chatbot/api-key"
+)["Parameter"]["Value"]
 
 
 def display_response(raw_text: str):
