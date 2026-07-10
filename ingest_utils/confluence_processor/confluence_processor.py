@@ -12,6 +12,12 @@ from s3_uploader import S3Uploader
 DOWNLOAD_DIR = "confluence_downloads"
 ASSET_LINKS_CSV = "confluence_asset_links.csv"
 
+# Must match the lambda_mappings keys in src/ingest/routing/routing_lambda.py -
+# anything else lands in S3 but is skipped by the ingest pipeline
+PIPELINE_SUPPORTED_EXTENSIONS = {
+    "mp4", "webm", "pdf", "mp3", "wav", "flac", "m4a", "txt", "vtt",
+}
+
 
 def _sanitize_drive_file_url(url):
     if not url:
@@ -29,6 +35,26 @@ def _sanitize_drive_file_url(url):
     if match:
         return match.group(1)
     return url
+
+
+def _derive_file_name(url: str, file_type: str) -> str:
+    """
+    Derives a unique local/S3 file name from an asset URL. URLs without a clear
+    filename (e.g. drive.google.com/open?id=...) fall back to an identifier
+    extracted from the URL so distinct assets never collapse to the same name.
+    """
+    file_name = url.split("/")[-1].split("?")[0]  # Get filename and remove params
+    if file_name and "." in file_name:
+        return file_name
+
+    # No usable filename in the URL - build one from the Drive file ID or the URL itself
+    match = re.search(r"[?&]id=([\w-]+)", url) or re.search(r"/d/([\w-]+)", url)
+    if match:
+        base = match.group(1)
+    else:
+        base = re.sub(r"\W+", "_", url.split("//")[-1]).strip("_")[:80]
+    ext = f".{file_type}" if file_type else ""
+    return f"{base}{ext}"
 
 
 def download_file(url: str, output_path: str) -> Optional[str]:
@@ -127,27 +153,38 @@ def main():
         file_type = asset["file_type"]
         is_subscriber_content = asset["is_subscriber_content"]
 
-        # Determine local file name from URL
-        file_name = url.split("/")[-1].split("?")[
-            0
-        ]  # Get filename and remove  params
-        if (
-            not file_name or "." not in file_name
-        ):  # Handle cases where filename is not clear
-            file_name = f"downloaded_asset.{file_type}"
+        # Google Drive folders are handled by google_drive_processor.py via the
+        # Drive API; downloading the folder URL here only yields an HTML page
+        if "drive.google.com/drive/folders/" in url:
+            print(f"Skipping (handled by google_drive_processor): {url}")
+            continue
+
+        file_name = _derive_file_name(url, file_type)
+
+        # Only download files the ingest pipeline can actually process
+        extension = os.path.splitext(file_name)[1].lstrip(".").lower()
+        if extension not in PIPELINE_SUPPORTED_EXTENSIONS:
+            print(f"Skipping (unsupported by ingest pipeline, ext='{extension}'): {url}")
+            continue
 
         output_path = os.path.join(DOWNLOAD_DIR, file_name)
 
+        # Prepend the s3_subfolder to the S3 object key if provided
+        if s3_subfolder:
+            s3_object_key = f"{s3_subfolder.rstrip('/')}/{file_name}"
+        else:
+            s3_object_key = file_name
+
         print(f"Processing asset: {url}")
+
+        # Skip before downloading so already-synced assets cost nothing
+        if skip_existing and uploader.file_exists(s3_object_key):
+            print(f"Skipping {file_name} - already exists in S3")
+            continue
 
         downloaded_file_path = download_file(url, output_path)
 
         if downloaded_file_path:
-            # Prepend the s3_subfolder to the S3 object key if provided
-            if s3_subfolder:
-                s3_object_key = f"{s3_subfolder.rstrip('/')}/{file_name}"
-            else:
-                s3_object_key = file_name
             uploader.upload_file(
                 downloaded_file_path, s3_object_key, is_subscriber_content, skip_if_exists=skip_existing
             )

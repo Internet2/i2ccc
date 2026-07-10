@@ -51,6 +51,13 @@ blob_types = {
     "audio/mp4",
 }
 
+# Must match the lambda_mappings keys in src/ingest/routing/routing_lambda.py -
+# files whose final upload name isn't one of these are skipped by the ingest
+# pipeline, so downloading them is wasted work
+PIPELINE_SUPPORTED_EXTENSIONS = {
+    "mp4", "webm", "pdf", "mp3", "wav", "flac", "m4a", "txt", "vtt",
+}
+
 
 class GoogleDriveProcessor:
     def __init__(
@@ -247,6 +254,26 @@ class GoogleDriveProcessor:
             return match.group(1)
         return url
 
+    def _predicted_s3_keys(self, name: str, mime_type: str) -> List[str]:
+        """
+        Predicts the S3 key(s) a Drive file would end up under after export,
+        PDF conversion, or video chunking, so existence can be checked before
+        the file is downloaded.
+        """
+        if mime_type in native_types:
+            export_mime_type = native_types[mime_type]
+            if "wordprocessingml" in export_mime_type:
+                # Downloaded as .docx then converted to PDF (falls back to .docx)
+                return [f"{name}.pdf", f"{name}.docx"]
+            if "presentationml" in export_mime_type:
+                return [f"{name}.pdf", f"{name}.pptx"]
+            if "spreadsheetml" in export_mime_type:
+                return [f"{name}.xlsx"]
+            return [name]
+        # Blob files upload under their own name; large videos upload as chunks
+        base_name = os.path.splitext(name)[0]
+        return [name, f"{base_name}_chunk_001.mp4"]
+
     def _download_and_upload_file(
         self,
         file: Dict,
@@ -263,6 +290,24 @@ class GoogleDriveProcessor:
         logger.debug(
             f"Attempting to download file '{name}' (ID: {file_id}, MimeType: {mime_type})"
         )
+
+        predicted_keys = self._predicted_s3_keys(name, mime_type)
+
+        # Skip files the ingest pipeline can't process (routing lambda would
+        # ignore them anyway), so we never download them
+        final_ext = os.path.splitext(predicted_keys[0])[1].lstrip(".").lower()
+        if final_ext not in PIPELINE_SUPPORTED_EXTENSIONS:
+            logger.info(
+                f"Skipping {name} - final type '{final_ext or mime_type}' is unsupported by the ingest pipeline"
+            )
+            return None
+
+        # Skip before downloading so already-synced files cost nothing
+        if self.skip_existing:
+            for predicted_key in predicted_keys:
+                if self.s3_uploader.file_exists(predicted_key):
+                    logger.info(f"Skipping {name} - already exists in S3")
+                    return None
 
         output_path = os.path.join(self.output_dir, name)
 

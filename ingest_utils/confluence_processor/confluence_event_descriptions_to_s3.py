@@ -45,16 +45,20 @@ else:
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 s3_client = boto3.client("s3", region_name=AWS_REGION)
 
+# List the bucket once up front so existence checks are in-memory lookups
+# instead of one HEAD request per file
+existing_s3_keys = set()
+if SKIP_EXISTING:
+    paginator = s3_client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(Bucket=S3_BUCKET):
+        for obj in page.get("Contents", []):
+            existing_s3_keys.add(obj["Key"])
+    print(f"Loaded {len(existing_s3_keys)} existing object keys from s3://{S3_BUCKET}")
+
 
 def file_exists_in_s3(s3_key):
-    """Check if a file exists in S3."""
-    try:
-        s3_client.head_object(Bucket=S3_BUCKET, Key=s3_key)
-        return True
-    except s3_client.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == '404':
-            return False
-        raise
+    """Check if a file exists in S3, including the quarantine/ folder."""
+    return s3_key in existing_s3_keys or f"quarantine/{s3_key}" in existing_s3_keys
 
 
 def sanitize_filename(name):
@@ -150,12 +154,19 @@ for confluence_url in confluence_urls:
                 )
                 txt_file_name = f"{safe_title}.txt"
                 txt_file_path = os.path.join(DOWNLOAD_DIR, txt_file_name)
-                with open(txt_file_path, "w", encoding="utf-8") as f:
-                    f.write(txt_content)
                 # S3 key
                 s3_key = (
                     f"{S3_SUBFOLDER}/{txt_file_name}" if S3_SUBFOLDER else txt_file_name
                 )
+
+                # Check if file exists and skip if requested
+                if SKIP_EXISTING and file_exists_in_s3(s3_key):
+                    print(f"Skipping {txt_file_name} - already exists in S3")
+                    event_count += 1
+                    continue
+
+                with open(txt_file_path, "w", encoding="utf-8") as f:
+                    f.write(txt_content)
                 # Metadata
                 metadata = {
                     "member-content": to_ascii("False"),
@@ -166,17 +177,13 @@ for confluence_url in confluence_urls:
                 # Remove empty metadata
                 metadata = {k: v for k, v in metadata.items() if v}
 
-                # Check if file exists and skip if requested
-                if SKIP_EXISTING and file_exists_in_s3(s3_key):
-                    print(f"Skipping {txt_file_name} - already exists in S3")
-                    os.remove(txt_file_path)
-                else:
-                    # Upload to S3
-                    print(f"Uploading {txt_file_name} to s3://{S3_BUCKET}/{s3_key}")
-                    s3_client.upload_file(
-                        txt_file_path, S3_BUCKET, s3_key, ExtraArgs={"Metadata": metadata}
-                    )
-                    os.remove(txt_file_path)
+                # Upload to S3
+                print(f"Uploading {txt_file_name} to s3://{S3_BUCKET}/{s3_key}")
+                s3_client.upload_file(
+                    txt_file_path, S3_BUCKET, s3_key, ExtraArgs={"Metadata": metadata}
+                )
+                os.remove(txt_file_path)
+                existing_s3_keys.add(s3_key)
                 event_count += 1
 
     if not found_table:
