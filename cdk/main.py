@@ -40,7 +40,6 @@ class RagChatbotStack(Stack):
         temperature: float = 1.0,
         top_p: float = 0.999,
         max_tokens: int = 4096,
-        api_key_value: str = None,
         # Cognito / SAML auth (optional)
         cognito_domain_prefix: str = None,
         saml_idp_name: str = None,
@@ -123,7 +122,6 @@ class RagChatbotStack(Stack):
             temperature=temperature,
             top_p=top_p,
             max_tokens=max_tokens,
-            api_key_value=api_key_value,
             frontend_distribution_domain=frontend_stack.public_domain_name,
             user_pool=auth.user_pool if auth else None,
         )
