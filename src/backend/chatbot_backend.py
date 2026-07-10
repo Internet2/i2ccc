@@ -18,6 +18,9 @@ logger.setLevel(logging.INFO)
 dynamodb = boto3.resource("dynamodb")
 ssm = boto3.client("ssm")
 
+# Reject oversized queries before any billable Bedrock/OpenSearch call (S5).
+MAX_QUERY_CHARS = 4000
+
 # Cache for prompts
 _prompt_cache = {}
 
@@ -464,13 +467,24 @@ def generate_source_mapping(
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         body_data: Dict[str, Any] = json.loads(event["body"])
-        user_query: str = body_data["query"]
-        session_id: str = body_data.get("session_id", str(uuid.uuid4()))
 
         # Identity is injected by the authenticated proxy from the validated JWT.
         caller_sub: Optional[str] = body_data.get("owner_sub")
         if not caller_sub:
             return {"statusCode": 401, "body": json.dumps("Unauthorized")}
+
+        # Validate inputs before any billable call (S5/S12).
+        user_query = body_data.get("query")
+        if (
+            not isinstance(user_query, str)
+            or not user_query.strip()
+            or len(user_query) > MAX_QUERY_CHARS
+        ):
+            return {"statusCode": 400, "body": json.dumps("Invalid query")}
+
+        session_id = body_data.get("session_id", str(uuid.uuid4()))
+        if not isinstance(session_id, str) or not session_id:
+            return {"statusCode": 400, "body": json.dumps("Invalid session_id")}
 
         # IDOR guard: refuse to read or write a session owned by another user.
         existing_owner = get_session_owner(session_id)

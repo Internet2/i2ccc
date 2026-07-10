@@ -368,6 +368,12 @@ class RagBackend(Construct):
                 "ProxyAPI",
                 rest_api_name="RagChatbotProxyAPI",
                 description="Public-facing proxy API (API key secured server-side)",
+                # Cap request rate on the public stage so an authenticated caller
+                # can't drive unbounded Bedrock spend (S5). Applies to all methods.
+                deploy_options=apigw.StageOptions(
+                    throttling_rate_limit=20,
+                    throttling_burst_limit=10,
+                ),
                 default_cors_preflight_options=apigw.CorsOptions(
                     allow_origins=allowed_origins,
                     allow_methods=apigw.Cors.ALL_METHODS,
