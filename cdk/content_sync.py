@@ -2,6 +2,7 @@ from aws_cdk import (
     CfnOutput,
     Duration,
     RemovalPolicy,
+    TimeZone,
 )
 from aws_cdk import (
     aws_ec2 as ec2,
@@ -23,6 +24,12 @@ from aws_cdk import (
 )
 from aws_cdk import (
     aws_s3 as s3,
+)
+from aws_cdk import (
+    aws_scheduler as scheduler,
+)
+from aws_cdk import (
+    aws_scheduler_targets as scheduler_targets,
 )
 from aws_cdk import (
     aws_secretsmanager as secretsmanager,
@@ -323,6 +330,23 @@ class ContentSync(Construct):
         )
         pipeline.grant_start_execution(kickoff_lambda)
         pipeline.grant_read(kickoff_lambda)
+
+        # Weekly automatic run: Fridays 3:00 AM Eastern. EventBridge Scheduler
+        # is timezone-aware, so DST transitions don't shift the run time.
+        # Going through the kickoff lambda (not the state machine directly)
+        # keeps the concurrent-run guard in the loop.
+        scheduler.Schedule(
+            self,
+            "WeeklySyncSchedule",
+            schedule=scheduler.ScheduleExpression.cron(
+                minute="0",
+                hour="3",
+                week_day="FRI",
+                time_zone=TimeZone.AMERICA_NEW_YORK,
+            ),
+            target=scheduler_targets.LambdaInvoke(kickoff_lambda),
+            description="Weekly content-sync run (Fridays 3am ET)",
+        )
 
         CfnOutput(
             self,
