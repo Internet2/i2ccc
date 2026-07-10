@@ -1082,6 +1082,13 @@ class RagIngest(Construct):
         self.step_function_arn = state_machine.state_machine_arn
         self.processed_files_table_name = processed_files_table.table_name
 
+        # Exposed for the ContentSync construct, which reuses this
+        # infrastructure for the collector job
+        self.cluster = cluster
+        self.vpc = vpc
+        self.input_assets_bucket = input_assets_bucket
+        self.state_machine = state_machine
+
         CfnOutput(
             self,
             "InputBucketName",

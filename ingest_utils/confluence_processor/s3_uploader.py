@@ -8,32 +8,36 @@ class S3Uploader:
     def __init__(self, bucket_name: str, region_name: str):
         self.bucket_name = bucket_name
         self.s3_client = boto3.client("s3", region_name=region_name)
+        self._existing_keys: Optional[set] = None
+
+    def get_existing_keys(self) -> set:
+        """
+        List every object key in the bucket once and cache the result, so
+        existence checks are in-memory lookups instead of per-file HEAD requests.
+        """
+        if self._existing_keys is None:
+            keys = set()
+            paginator = self.s3_client.get_paginator("list_objects_v2")
+            for page in paginator.paginate(Bucket=self.bucket_name):
+                for obj in page.get("Contents", []):
+                    keys.add(obj["Key"])
+            self._existing_keys = keys
+            print(f"Loaded {len(keys)} existing object keys from s3://{self.bucket_name}")
+        return self._existing_keys
 
     def file_exists(self, s3_object_key: str) -> bool:
         """
         Check if a file exists in S3, including the quarantine/ folder.
         """
-        # Check root location first
-        try:
-            self.s3_client.head_object(Bucket=self.bucket_name, Key=s3_object_key)
+        existing_keys = self.get_existing_keys()
+        if s3_object_key in existing_keys:
             print(f"Found existing file at: s3://{self.bucket_name}/{s3_object_key}")
             return True
-        except self.s3_client.exceptions.ClientError as e:
-            if e.response['Error']['Code'] != '404':
-                # Re-raise other errors (permissions, etc.)
-                raise
-
-        # Check quarantine folder
         quarantine_key = f"quarantine/{s3_object_key}"
-        try:
-            self.s3_client.head_object(Bucket=self.bucket_name, Key=quarantine_key)
+        if quarantine_key in existing_keys:
             print(f"Found existing file in quarantine: s3://{self.bucket_name}/{quarantine_key}")
             return True
-        except self.s3_client.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == '404':
-                return False
-            # Re-raise other errors (permissions, etc.)
-            raise
+        return False
 
     def upload_file(
         self,
@@ -83,6 +87,8 @@ class S3Uploader:
             self.s3_client.upload_file(
                 file_path, self.bucket_name, s3_object_key, ExtraArgs=extra_args
             )
+            if self._existing_keys is not None:
+                self._existing_keys.add(s3_object_key)
             print(f"Successfully uploaded {os.path.basename(file_path)}")
             return True
         except Exception as e:
