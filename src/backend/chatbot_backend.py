@@ -18,6 +18,9 @@ logger.setLevel(logging.INFO)
 dynamodb = boto3.resource("dynamodb")
 ssm = boto3.client("ssm")
 
+# Reject oversized queries before any billable Bedrock/OpenSearch call (S5).
+MAX_QUERY_CHARS = 4000
+
 # Cache for prompts
 _prompt_cache = {}
 
@@ -49,6 +52,25 @@ def get_conversation_history(session_id: str) -> List[Dict[str, str]]:
     return list(reversed(messages[-max_turns:]))
 
 
+def get_session_owner(session_id: str) -> Optional[str]:
+    """Return the owner_sub of an existing session.
+
+    Returns None if the session has no stored items yet (a brand-new session) or
+    predates ownership tracking (legacy rows written before this fix). The oldest
+    item is authoritative — it was written by the session's creator.
+    """
+    table = dynamodb.Table(os.getenv("CONVERSATION_TABLE"))
+    response = table.query(
+        KeyConditionExpression=Key("session_id").eq(session_id),
+        Limit=1,
+        ProjectionExpression="owner_sub",
+    )
+    items = response.get("Items", [])
+    if not items:
+        return None
+    return items[0].get("owner_sub")
+
+
 def _prepare_for_dynamodb(value: Any) -> Any:
     """Recursively clean a value tree for DynamoDB put_item:
     - drop None values and empty strings (rejected by the high-level Table API)
@@ -76,6 +98,7 @@ def save_message(
     document_ids: List[str] = None,
     conversation_turn: str = None,
     sources: Optional[List[Dict[str, Any]]] = None,
+    owner_sub: Optional[str] = None,
 ) -> int:
     """Save a message to conversation history and return timestamp."""
     table = dynamodb.Table(os.getenv("CONVERSATION_TABLE"))
@@ -87,6 +110,9 @@ def save_message(
         "role": role,
         "content": content,
     }
+
+    if owner_sub:
+        item["owner_sub"] = owner_sub
 
     if document_ids:
         item["document_ids"] = document_ids
@@ -441,8 +467,29 @@ def generate_source_mapping(
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         body_data: Dict[str, Any] = json.loads(event["body"])
-        user_query: str = body_data["query"]
-        session_id: str = body_data.get("session_id", str(uuid.uuid4()))
+
+        # Identity is injected by the authenticated proxy from the validated JWT.
+        caller_sub: Optional[str] = body_data.get("owner_sub")
+        if not caller_sub:
+            return {"statusCode": 401, "body": json.dumps("Unauthorized")}
+
+        # Validate inputs before any billable call (S5/S12).
+        user_query = body_data.get("query")
+        if (
+            not isinstance(user_query, str)
+            or not user_query.strip()
+            or len(user_query) > MAX_QUERY_CHARS
+        ):
+            return {"statusCode": 400, "body": json.dumps("Invalid query")}
+
+        session_id = body_data.get("session_id", str(uuid.uuid4()))
+        if not isinstance(session_id, str) or not session_id:
+            return {"statusCode": 400, "body": json.dumps("Invalid session_id")}
+
+        # IDOR guard: refuse to read or write a session owned by another user.
+        existing_owner = get_session_owner(session_id)
+        if existing_owner is not None and existing_owner != caller_sub:
+            return {"statusCode": 403, "body": json.dumps("Forbidden")}
 
         # Get conversation history
         history = get_conversation_history(session_id)
@@ -538,7 +585,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         conversation_turn = str(uuid.uuid4())
 
         # Save conversation to history
-        save_message(session_id, "user", user_query, None, conversation_turn)
+        save_message(
+            session_id,
+            "user",
+            user_query,
+            None,
+            conversation_turn,
+            owner_sub=caller_sub,
+        )
         assistant_timestamp = save_message(
             session_id,
             "assistant",
@@ -546,6 +600,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             document_ids,
             conversation_turn,
             sources=sources,
+            owner_sub=caller_sub,
         )
 
         return {

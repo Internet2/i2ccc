@@ -1,6 +1,7 @@
 import os
 import pandas as pd# type: ignore
 from googleapiclient.discovery import build# type: ignore
+from google.auth.transport.requests import AuthorizedSession# type: ignore
 from google.oauth2 import service_account# type: ignore
 import json
 from typing import List, Dict, Optional
@@ -51,6 +52,21 @@ blob_types = {
     "audio/mp4",
 }
 
+# The files.export API rejects Workspace files over 10 MB; these direct
+# endpoints accept the same OAuth token without that limit
+direct_export_urls = {
+    "application/vnd.google-apps.document": "https://docs.google.com/document/d/{id}/export?format=docx",
+    "application/vnd.google-apps.presentation": "https://docs.google.com/presentation/d/{id}/export/pptx",
+    "application/vnd.google-apps.spreadsheet": "https://docs.google.com/spreadsheets/d/{id}/export?format=xlsx",
+}
+
+# Must match the lambda_mappings keys in src/ingest/routing/routing_lambda.py -
+# files whose final upload name isn't one of these are skipped by the ingest
+# pipeline, so downloading them is wasted work
+PIPELINE_SUPPORTED_EXTENSIONS = {
+    "mp4", "webm", "pdf", "mp3", "wav", "flac", "m4a", "txt", "vtt",
+}
+
 
 class GoogleDriveProcessor:
     def __init__(
@@ -65,8 +81,13 @@ class GoogleDriveProcessor:
             scopes=["https://www.googleapis.com/auth/drive.readonly"],
         )
 
-        # Get API key from environment and pass  if available
+        # Get API key from environment and pass if available. Real Google API
+        # keys start with "AIza"; anything else (e.g. an unset Secrets Manager
+        # placeholder) is treated as absent.
         api_key = os.getenv("GOOGLE_API_KEY")
+        if api_key and not api_key.startswith("AIza"):
+            logger.warning("GOOGLE_API_KEY does not look like a Google API key. Ignoring it.")
+            api_key = None
         if api_key:
             logger.debug(
                 "GOOGLE_API_KEY found. Initializing Drive service with developerKey."
@@ -85,6 +106,21 @@ class GoogleDriveProcessor:
 
         # Global timestamp tracking across all videos
         self.global_timestamp_seconds = 0
+
+        # Run summary counts, reported by the collector job
+        self.stats = {
+            "uploaded": 0,
+            "already_in_s3": 0,
+            "unsupported_skipped": 0,
+            "mp4_dominance_skipped": 0,
+            "failed": 0,
+            "uploaded_files": [],
+        }
+
+    def _record_upload(self, success: bool, s3_key: str) -> None:
+        self.stats["uploaded" if success else "failed"] += 1
+        if success:
+            self.stats["uploaded_files"].append(s3_key)
 
     def _get_normalized_file_name(self, file_name: str) -> str:
         """
@@ -202,12 +238,31 @@ class GoogleDriveProcessor:
             logger.error(f"Error converting file to PDF: {e}")
             return None
 
+    def _export_via_direct_url(self, file_id: str, mime_type: str, name: str):
+        """
+        Fallback for Google Workspace files over the 10 MB files.export limit:
+        the docs.google.com export endpoints accept the same credentials
+        without that cap.
+        """
+        url_template = direct_export_urls.get(mime_type)
+        if not url_template:
+            return None
+        logger.info(f"'{name}' exceeds the export API size limit; retrying via direct export URL")
+        session = AuthorizedSession(self.creds)
+        resp = session.get(url_template.format(id=file_id))
+        if resp.status_code != 200:
+            logger.error(
+                f"Direct export failed for '{name}' (HTTP {resp.status_code})"
+            )
+            return None
+        return resp.content
+
     def is_file_public(self, file_id: str) -> bool:
         """Check if a Google Drive file is public (anyone can read)."""
         try:
             permissions = (
                 self.service.permissions()
-                .list(fileId=file_id)
+                .list(fileId=file_id, supportsAllDrives=True)
                 .execute()
                 .get("permissions", [])
             )
@@ -247,6 +302,26 @@ class GoogleDriveProcessor:
             return match.group(1)
         return url
 
+    def _predicted_s3_keys(self, name: str, mime_type: str) -> List[str]:
+        """
+        Predicts the S3 key(s) a Drive file would end up under after export,
+        PDF conversion, or video chunking, so existence can be checked before
+        the file is downloaded.
+        """
+        if mime_type in native_types:
+            export_mime_type = native_types[mime_type]
+            if "wordprocessingml" in export_mime_type:
+                # Downloaded as .docx then converted to PDF (falls back to .docx)
+                return [f"{name}.pdf", f"{name}.docx"]
+            if "presentationml" in export_mime_type:
+                return [f"{name}.pdf", f"{name}.pptx"]
+            if "spreadsheetml" in export_mime_type:
+                return [f"{name}.xlsx"]
+            return [name]
+        # Blob files upload under their own name; large videos upload as chunks
+        base_name = os.path.splitext(name)[0]
+        return [name, f"{base_name}_chunk_001.mp4"]
+
     def _download_and_upload_file(
         self,
         file: Dict,
@@ -258,11 +333,33 @@ class GoogleDriveProcessor:
         """Download a file from Google Drive and upload it to S3"""
         file_id = file["id"]
         mime_type = file["mimeType"]
-        name = file["name"]
+        # Drive file names may contain slashes, which would break local paths
+        # and create unintended S3 "folders"
+        name = file["name"].replace("/", "_").replace("\\", "_")
 
         logger.debug(
             f"Attempting to download file '{name}' (ID: {file_id}, MimeType: {mime_type})"
         )
+
+        predicted_keys = self._predicted_s3_keys(name, mime_type)
+
+        # Skip files the ingest pipeline can't process (routing lambda would
+        # ignore them anyway), so we never download them
+        final_ext = os.path.splitext(predicted_keys[0])[1].lstrip(".").lower()
+        if final_ext not in PIPELINE_SUPPORTED_EXTENSIONS:
+            logger.info(
+                f"Skipping {name} - final type '{final_ext or mime_type}' is unsupported by the ingest pipeline"
+            )
+            self.stats["unsupported_skipped"] += 1
+            return None
+
+        # Skip before downloading so already-synced files cost nothing
+        if self.skip_existing:
+            for predicted_key in predicted_keys:
+                if self.s3_uploader.file_exists(predicted_key):
+                    logger.info(f"Skipping {name} - already exists in S3")
+                    self.stats["already_in_s3"] += 1
+                    return None
 
         output_path = os.path.join(self.output_dir, name)
 
@@ -291,7 +388,15 @@ class GoogleDriveProcessor:
 
             # Download the file
             if request:
-                response = request.execute()
+                try:
+                    response = request.execute()
+                except HttpError as e:
+                    if export_mime_type and "exportSizeLimitExceeded" in str(e):
+                        response = self._export_via_direct_url(file_id, mime_type, name)
+                        if response is None:
+                            raise
+                    else:
+                        raise
                 logger.debug(
                     f"Google Drive API request executed successfully for '{name}'."
                 )
@@ -357,6 +462,7 @@ class GoogleDriveProcessor:
                         logger.error(
                             f"S3 upload failed for {pdf_path}. Keeping local files for inspection."
                         )
+                    self._record_upload(upload_success, s3_object_name)
                     return pdf_path if upload_success else None
                 else:
                     logger.error(
@@ -406,12 +512,14 @@ class GoogleDriveProcessor:
                 logger.error(
                     f"S3 upload failed for {name}. Keeping local file for inspection."
                 )
+            self._record_upload(upload_success, s3_object_name)
             return output_path if upload_success else None
 
         except Exception as e:
             logger.error(
                 f"Error during download or upload of {name} from Google Drive: {str(e)}"
             )
+            self.stats["failed"] += 1
             if os.path.exists(output_path):
                 os.remove(output_path)
             return None
@@ -542,6 +650,7 @@ class GoogleDriveProcessor:
                 if success:
                     self.global_timestamp_seconds += int(duration_seconds)
 
+                self._record_upload(success, s3_key)
                 return success
             else:
                 logger.info(
@@ -583,6 +692,7 @@ class GoogleDriveProcessor:
                         self.global_timestamp_seconds += int(chunk["duration"])
                     else:
                         success = False
+                    self._record_upload(chunk_success, chunk_s3_key)
                     # add other meta data stuff
                     chunk["source_url"] = source_url
                     chunk["parent_folder_name"] = parent_folder_name
@@ -704,6 +814,7 @@ class GoogleDriveProcessor:
                     logger.debug(
                         f"Skipping {file_name} ({file_mime_type}) because an MP4 with a similar name ({normalized_name}) is present in the group."
                     )
+                    self.stats["mp4_dominance_skipped"] += 1
                     continue
                 else:
                     # Download all other file types, and VTT/M4A if no MP4 in this group
@@ -726,9 +837,7 @@ class GoogleDriveProcessor:
             )
 
 
-def main():
-    service_account_json_data = None
-
+def main() -> dict:
     logger.debug(f"Starting main function for Google Drive processing.")
     # Load config and get env file path
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -749,24 +858,29 @@ def main():
     else:
         logger.info("Skip existing S3 files is DISABLED - will overwrite existing files")
 
-    service_account_json_path = env_vars.get("GOOGLE_DRIVE_CREDENTIALS")
-    logger.debug(
-        f"GOOGLE_DRIVE_CREDENTIALS path from dotenv: {service_account_json_path}"
-    )
-
-    if service_account_json_path:
+    # Prefer credentials injected directly as an env var (e.g. from Secrets
+    # Manager when running as a cloud job), then fall back to a file path from
+    # the environment or the dotenv file (local runs)
+    service_account_json_content_string = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if service_account_json_content_string:
+        logger.info("Loaded Google Service Account JSON from GOOGLE_SERVICE_ACCOUNT_JSON env var")
+    else:
+        service_account_json_path = os.getenv("GOOGLE_DRIVE_CREDENTIALS") or env_vars.get(
+            "GOOGLE_DRIVE_CREDENTIALS"
+        )
+        logger.debug(
+            f"GOOGLE_DRIVE_CREDENTIALS path: {service_account_json_path}"
+        )
+        if not service_account_json_path:
+            raise RuntimeError(
+                "No Google credentials found. Set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_DRIVE_CREDENTIALS."
+            )
         with open(service_account_json_path, "r") as f:
             service_account_json_data = json.load(f)
         logger.info(
             f"Successfully loaded Google Service Account JSON from file: {service_account_json_path}"
         )
-
-
-    # Convert the loaded JSON data back to a string for the credential constructor
-    service_account_json_content_string = json.dumps(service_account_json_data)
-    logger.debug(
-        f"Converted JSON data to string for credential constructor. Length: {len(service_account_json_content_string)}"
-    )
+        service_account_json_content_string = json.dumps(service_account_json_data)
 
     s3_uploader = S3Uploader(bucket_name=s3_bucket_name, region_name=aws_region)
     drive_processor = GoogleDriveProcessor(
@@ -786,19 +900,21 @@ def main():
             )
         logger.info(f"Found {len(assets_df)} asset links in t.csv")
     except FileNotFoundError:
-        logger.error(
-            "Error: confluence_asset_links not found. Please create the file with Google Drive folder URLs."
+        raise RuntimeError(
+            "confluence_asset_links.csv not found. Run confluence_processor.py first to generate it."
         )
-        return
-    except ValueError as e:
-        logger.error(f"Error reading confluence_asset_links: {e}")
-        return
 
     # Process only Google Drive folder URLs from the CSV
     google_drive_urls_to_process = []
     for index, row in assets_df.iterrows():
         url = str(row["url"]).strip()
         is_subscriber = str(row["is_subscriber_content"]).strip().lower() == "true"
+
+        # Non-Drive URLs (e.g. Panopto viewer links) also contain "id=" and
+        # would otherwise be mistaken for Drive folders
+        if "drive.google.com" not in url:
+            logger.warning(f"Skipping non-Google Drive URL from CSV: {url}")
+            continue
 
         # Attempt to get folder ID to confirm it's a Google Drive folder URL
         try:
@@ -812,7 +928,7 @@ def main():
 
     if not google_drive_urls_to_process:
         logger.info("No Google Drive folder URLs found in .csv. Exiting.")
-        return
+        return drive_processor.stats
 
     logger.info(f"Found {len(google_drive_urls_to_process)} Google Drive folders to process.")
 
@@ -830,8 +946,10 @@ def main():
 
         except Exception as e:
             logger.error(f"An unexpected error occurred for URL {url}: {e}")
+            drive_processor.stats["failed"] += 1
 
-    logger.info("\nGoogle Drive asset processing complete.")
+    logger.info(f"\nGoogle Drive asset processing complete. Summary: {drive_processor.stats}")
+    return drive_processor.stats
 
 
 if __name__ == "__main__":

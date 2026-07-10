@@ -57,6 +57,13 @@ skip_existing_s3_files: true
 # Env file with local credentials for manual ingest-script runs (optional,
 # defaults to names.env in ingest_utils/confluence_processor/)
 # env_file: names.env
+# Email address that receives content-sync run notifications (optional).
+# The SNS subscription must be confirmed once via the email AWS sends.
+# notification_email: you@example.edu
+
+# Chat
+file_input_folder: files-to-process/
+bucket_image_folder: image_store/
 
 # For text file ingestion
 chunk_size: "20000" # In number of characters, must be a string

@@ -3,6 +3,7 @@ from aws_cdk import (
     CfnOutput,
     Duration,
     RemovalPolicy,
+    Stack,
 )
 from aws_cdk import (
     aws_apigateway as apigw,
@@ -140,7 +141,7 @@ class RagBackend(Construct):
         chat_lambda.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["s3:GetObject"],
-                resources=[bucket_arn],
+                resources=[f"{bucket_arn}/*"],
                 effect=iam.Effect.ALLOW,
             )
         )
@@ -148,19 +149,27 @@ class RagBackend(Construct):
         # Grant DynamoDB permissions
         conversation_table.grant_read_write_data(chat_lambda)
 
-        # Attach AWS managed policies
-        chat_lambda.role.add_managed_policy(
-            iam.ManagedPolicy.from_aws_managed_policy_name(
-                "AmazonBedrockFullAccess"
-            )
-        )
-        chat_lambda.role.add_managed_policy(
-            iam.ManagedPolicy.from_aws_managed_policy_name(
-                "AmazonOpenSearchServiceFullAccess"
+        # Bedrock: invoke only, scoped to foundation models and inference
+        # profiles (a model routed via a cross-region profile needs the profile
+        # ARN too). Replaces AmazonBedrockFullAccess, which also grants model
+        # management/provisioning the app never uses.
+        chat_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "bedrock:InvokeModel",
+                    "bedrock:InvokeModelWithResponseStream",
+                ],
+                resources=[
+                    "arn:aws:bedrock:*::foundation-model/*",
+                    f"arn:aws:bedrock:*:{Stack.of(self).account}:inference-profile/*",
+                ],
             )
         )
 
-        # Define custom inline policy
+        # OpenSearch Serverless (aoss) data access, scoped to this collection.
+        # AmazonOpenSearchServiceFullAccess (managed-domain es:* access) was
+        # removed — the app uses Serverless only, covered entirely by this.
         opensearch_policy = iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
@@ -359,6 +368,12 @@ class RagBackend(Construct):
                 "ProxyAPI",
                 rest_api_name="RagChatbotProxyAPI",
                 description="Public-facing proxy API (API key secured server-side)",
+                # Cap request rate on the public stage so an authenticated caller
+                # can't drive unbounded Bedrock spend (S5). Applies to all methods.
+                deploy_options=apigw.StageOptions(
+                    throttling_rate_limit=20,
+                    throttling_burst_limit=10,
+                ),
                 default_cors_preflight_options=apigw.CorsOptions(
                     allow_origins=allowed_origins,
                     allow_methods=apigw.Cors.ALL_METHODS,

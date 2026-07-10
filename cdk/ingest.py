@@ -181,14 +181,24 @@ class RagIngest(Construct):
 
         collection_arn = cfn_collection.attr_arn
 
-        # Define custom inline policy
-        opensearch_policy = iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            actions=[
-                "aoss:APIAccessAll",
-            ],
-            resources=["*"],
-        )
+        # Bedrock invoke scope reused across ingest roles: foundation models +
+        # inference profiles (a profile-routed model needs the profile ARN too).
+        # Replaces AmazonBedrockFullAccess on every role below.
+        bedrock_model_resources = [
+            "arn:aws:bedrock:*::foundation-model/*",
+            f"arn:aws:bedrock:*:{Stack.of(self).account}:inference-profile/*",
+        ]
+
+        # Textract has no resource-level scoping, so "*" is required; the point is
+        # to grant only the invoke/read actions instead of AmazonTextractFullAccess.
+        textract_actions = [
+            "textract:StartDocumentAnalysis",
+            "textract:GetDocumentAnalysis",
+            "textract:StartDocumentTextDetection",
+            "textract:GetDocumentTextDetection",
+            "textract:AnalyzeDocument",
+            "textract:DetectDocumentText",
+        ]
 
         # Create VPC (required for ECS Fargate)
         vpc = ec2.Vpc(
@@ -258,14 +268,17 @@ class RagIngest(Construct):
             self,
             "EcsTaskRole",
             assumed_by=iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "AmazonTextractFullAccess"
-                ),
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    "AmazonBedrockFullAccess"
-                ),
-            ],
+        )
+
+        # Textract + Bedrock: named actions only (was Textract/Bedrock FullAccess)
+        task_role.add_to_policy(
+            iam.PolicyStatement(actions=textract_actions, resources=["*"])
+        )
+        task_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=bedrock_model_resources,
+            )
         )
 
         # Grant S3 permissions to task role
@@ -297,13 +310,13 @@ class RagIngest(Construct):
             )
         )
 
-        # Add OpenSearch Permissions
+        # Add OpenSearch Permissions (scoped to this collection)
         opensearch_policy = iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
                 "aoss:APIAccessAll",
             ],
-            resources=["*"],
+            resources=[collection_arn],
         )
         task_role.add_to_policy(opensearch_policy)
 
@@ -385,23 +398,30 @@ class RagIngest(Construct):
         )
 
         # Add necessary permissions to the PDF Lambda role
-        pdf_lambda.role.add_managed_policy(
-            iam.ManagedPolicy.from_aws_managed_policy_name("AmazonTextractFullAccess")
+        # (named Textract/Bedrock actions instead of the FullAccess managed policies)
+        pdf_lambda.add_to_role_policy(
+            iam.PolicyStatement(actions=textract_actions, resources=["*"])
         )
-        pdf_lambda.role.add_managed_policy(
-            iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockFullAccess")
+        pdf_lambda.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=bedrock_model_resources,
+            )
         )
         input_assets_bucket.grant_read_write(pdf_lambda)
         pdf_lambda.add_to_role_policy(
-            iam.PolicyStatement(actions=["aoss:APIAccessAll"], resources=["*"])
+            iam.PolicyStatement(actions=["aoss:APIAccessAll"], resources=[collection_arn])
         )
 
         input_assets_bucket.grant_read(text_lambda)
         text_lambda.add_to_role_policy(
-            iam.PolicyStatement(actions=["bedrock:InvokeModel"], resources=["*"])
+            iam.PolicyStatement(
+                actions=["bedrock:InvokeModel"],
+                resources=bedrock_model_resources,
+            )
         )
         text_lambda.add_to_role_policy(
-            iam.PolicyStatement(actions=["aoss:APIAccessAll"], resources=["*"])
+            iam.PolicyStatement(actions=["aoss:APIAccessAll"], resources=[collection_arn])
         )
 
         # Create file size checker Lambda
@@ -1061,6 +1081,13 @@ class RagIngest(Construct):
         self.collection_arn = collection_arn
         self.step_function_arn = state_machine.state_machine_arn
         self.processed_files_table_name = processed_files_table.table_name
+
+        # Exposed for the ContentSync construct, which reuses this
+        # infrastructure for the collector job
+        self.cluster = cluster
+        self.vpc = vpc
+        self.input_assets_bucket = input_assets_bucket
+        self.state_machine = state_machine
 
         CfnOutput(
             self,

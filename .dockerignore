@@ -1,0 +1,16 @@
+# Keeps the collector image build context (repo root) small.
+# Only config.yaml and ingest_utils/confluence_processor are copied in.
+.git
+cdk.out
+node_modules
+frontend
+planning-docs
+**/__pycache__
+**/*.pyc
+.venv
+venv
+ingest_utils/confluence_processor/confluence_downloads
+ingest_utils/confluence_processor/google_drive_downloads
+ingest_utils/confluence_processor/service-credentials.json
+ingest_utils/confluence_processor/names.env
+ingest_utils/confluence_processor/names.env.copy
