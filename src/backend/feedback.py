@@ -11,6 +11,9 @@ logger.setLevel(logging.INFO)
 
 dynamodb = boto3.resource("dynamodb")
 
+# Reject oversized feedback text before writing to DynamoDB (S12).
+MAX_FEEDBACK_CHARS = 2000
+
 # Guards every feedback write: the target message row must already exist
 # (attribute_exists stops update_item from upserting a brand-new row) AND must
 # be owned by the caller (stops cross-user tampering). Fails closed on legacy
@@ -74,10 +77,6 @@ def feedback_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Handle feedback submission."""
     try:
         body_data: Dict[str, Any] = json.loads(event["body"])
-        session_id: str = body_data["session_id"]
-        timestamp: int = body_data["timestamp"]
-        rating: str = body_data["rating"]  # "thumbs_up" or "thumbs_down"
-        feedback_text: str = body_data.get("feedback_text", "")
 
         # Identity is injected by the authenticated proxy from the validated JWT.
         owner_sub: str = body_data.get("owner_sub")
@@ -86,6 +85,22 @@ def feedback_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "statusCode": 401,
                 "body": json.dumps("Unauthorized")
             }
+
+        # Validate body shape before touching DynamoDB (S12).
+        session_id = body_data.get("session_id")
+        timestamp = body_data.get("timestamp")
+        rating = body_data.get("rating")
+        feedback_text = body_data.get("feedback_text", "")
+
+        if not isinstance(session_id, str) or not session_id:
+            return {"statusCode": 400, "body": json.dumps("Invalid session_id")}
+        # bool is a subclass of int — exclude it so `true` isn't accepted as a key.
+        if not isinstance(timestamp, int) or isinstance(timestamp, bool):
+            return {"statusCode": 400, "body": json.dumps("Invalid timestamp")}
+        if rating not in ("thumbs_up", "thumbs_down"):
+            return {"statusCode": 400, "body": json.dumps("Invalid rating")}
+        if not isinstance(feedback_text, str) or len(feedback_text) > MAX_FEEDBACK_CHARS:
+            return {"statusCode": 400, "body": json.dumps("Invalid feedback_text")}
 
         save_feedback(session_id, timestamp, rating, owner_sub, feedback_text)
 
