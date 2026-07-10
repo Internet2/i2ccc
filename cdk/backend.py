@@ -327,8 +327,15 @@ class RagBackend(Construct):
                     f"apikey-value-{api_key.key_id}"
                 ),
             ),
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(
-                resources=[api_key_arn]
+            # API Gateway IAM uses HTTP-verb actions (apigateway:GET), which
+            # from_sdk_calls would mis-derive as apigateway:GetApiKey
+            policy=cr.AwsCustomResourcePolicy.from_statements(
+                [
+                    iam.PolicyStatement(
+                        actions=["apigateway:GET"],
+                        resources=[api_key_arn],
+                    )
+                ]
             ),
         )
         api_key_param = ssm.StringParameter(
