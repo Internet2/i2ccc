@@ -10,9 +10,15 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    # Group all updates into a single PR to reduce noise
+    # Group all updates into a single PR to reduce noise.
+    # Groups apply only to version updates by default, so security
+    # fixes need their own group with applies-to: security-updates.
     groups:
       dependencies:
+        patterns:
+          - "*"
+      security:
+        applies-to: security-updates
         patterns:
           - "*"
     # Limit to 5 open PRs at once
@@ -31,6 +37,10 @@ updates:
       backend-dependencies:
         patterns:
           - "*"
+      backend-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -46,6 +56,10 @@ updates:
       proxy-dependencies:
         patterns:
           - "*"
+      proxy-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
@@ -59,6 +73,10 @@ updates:
       day: "monday"
     groups:
       frontend-dependencies:
+        patterns:
+          - "*"
+      frontend-security:
+        applies-to: security-updates
         patterns:
           - "*"
     open-pull-requests-limit: 5
