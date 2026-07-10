@@ -21,7 +21,7 @@ jobs:
     steps:
       # Step 1: Check out the repository code
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # Step 2: Label the PR based on changed files
       - name: Label PR
