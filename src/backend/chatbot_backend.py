@@ -18,7 +18,7 @@ logger.setLevel(logging.INFO)
 dynamodb = boto3.resource("dynamodb")
 ssm = boto3.client("ssm")
 
-# Reject oversized queries before any billable Bedrock/OpenSearch call (S5).
+# Reject oversized queries before any billable Bedrock/OpenSearch call
 MAX_QUERY_CHARS = 4000
 
 # Cache for prompts
@@ -187,8 +187,8 @@ def invoke_model(
 
         return response["output"]["message"]["content"][0]["text"]
 
-    except Exception as e:
-        logger.error(f"Error invoking the model: {str(e)}")
+    except Exception:
+        logger.exception("Error invoking the model")
         return None
 
 
@@ -615,8 +615,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             ),
         }
 
-    except Exception as e:
-        logger.error(f"Error in lambda_handler: {e}")
+    except Exception:
+        logger.exception("Error in lambda_handler")
         return {
             "statusCode": 500,
             "body": json.dumps("Error processing message"),

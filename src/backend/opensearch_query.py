@@ -27,6 +27,10 @@ def initialize_opensearch():
         use_ssl=True,
         verify_certs=True,
         connection_class=RequestsHttpConnection,
+        # AOSS intermittently returns 500s on valid queries; retry through them
+        max_retries=3,
+        retry_on_status=(500, 502, 503, 504),
+        retry_on_timeout=True,
     )
 
     return client
