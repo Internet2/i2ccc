@@ -188,7 +188,9 @@ class ContentSync(Construct):
         topic = sns.Topic(
             self,
             "ContentSyncTopic",
-            display_name="Content sync run notifications",
+            # Shows up as the sender name on the notification emails; the
+            # subject line is set per-publish by the notify lambda
+            display_name="ABE content ingestion",
         )
         if notification_email:
             topic.add_subscription(
