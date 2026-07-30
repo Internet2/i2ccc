@@ -1,0 +1,3 @@
+openpyxl==3.1.5
+# zoneinfo needs an IANA database, which the Lambda image does not ship
+tzdata==2025.2

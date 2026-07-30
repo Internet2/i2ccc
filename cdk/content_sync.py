@@ -67,7 +67,7 @@ class ContentSync(Construct):
         vpc: ec2.Vpc,
         input_assets_bucket: s3.Bucket,
         ingestion_state_machine: sfn.StateMachine,
-        notification_email: str = None,
+        notification_email=None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -192,10 +192,12 @@ class ContentSync(Construct):
             # subject line is set per-publish by the notify lambda
             display_name="ABE content ingestion",
         )
-        if notification_email:
-            topic.add_subscription(
-                subscriptions.EmailSubscription(notification_email)
-            )
+        # config.yaml may give one address or a list of them. Each subscription
+        # has to be confirmed individually from its own inbox.
+        if isinstance(notification_email, str):
+            notification_email = [notification_email]
+        for address in dict.fromkeys(notification_email or []):
+            topic.add_subscription(subscriptions.EmailSubscription(address))
 
         notify_lambda = lambda_.Function(
             self,

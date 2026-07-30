@@ -58,9 +58,33 @@ skip_existing_s3_files: true
 # Env file with local credentials for manual ingest-script runs (optional,
 # defaults to names.env in ingest_utils/confluence_processor/)
 # env_file: names.env
-# Email address that receives content-sync run notifications (optional).
-# The SNS subscription must be confirmed once via the email AWS sends.
+# Who receives content-sync run notifications (optional). Each recipient
+# confirms their own SNS subscription once, from the email AWS sends them.
+# Keep this authoritative rather than adding people in the SNS console -
+# console-added subscribers are invisible to cdk diff. Accepts one address:
 # notification_email: you@example.edu
+# ...or several:
+# notification_email:
+#   - you@example.edu
+#   - teammate@example.edu
+
+# Who receives the weekly conversation export - an Excel file of questions,
+# answers and ratings, sent Mondays at 8am Eastern as a download link
+# (optional). Aimed at product/programme staff who need the data without AWS
+# access. Each recipient confirms their own SNS subscription once, from the
+# email AWS sends them. Unset means nobody is emailed - this never falls back
+# to notification_email, so conversation data only reaches addresses named
+# here. Accepts one address:
+# export_notification_email: pm@example.edu
+# ...or several:
+# export_notification_email:
+#   - pm@example.edu
+#   - programme-lead@example.edu
+# How long the emailed download link stays valid, in days (max 7).
+# export_url_expiry_days: 7
+# How long each generated file is kept in S3, in days. Unset keeps every export
+# indefinitely, so the console links in old emails never go stale.
+# export_retention_days: 90
 
 # Chat
 file_input_folder: files-to-process/
