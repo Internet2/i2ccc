@@ -5,6 +5,9 @@ from aws_cdk import (
     TimeZone,
 )
 from aws_cdk import (
+    aws_dynamodb as dynamodb,
+)
+from aws_cdk import (
     aws_ec2 as ec2,
 )
 from aws_cdk import (
@@ -67,7 +70,8 @@ class ContentSync(Construct):
         vpc: ec2.Vpc,
         input_assets_bucket: s3.Bucket,
         ingestion_state_machine: sfn.StateMachine,
-        notification_email: str = None,
+        processed_files_table: dynamodb.Table,
+        notification_email: str | list[str] = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -192,10 +196,12 @@ class ContentSync(Construct):
             # subject line is set per-publish by the notify lambda
             display_name="ABE content ingestion",
         )
-        if notification_email:
-            topic.add_subscription(
-                subscriptions.EmailSubscription(notification_email)
-            )
+        # config.yaml may give one address or a list of them. Each subscription
+        # has to be confirmed individually from its own inbox.
+        if isinstance(notification_email, str):
+            notification_email = [notification_email]
+        for address in dict.fromkeys(notification_email or []):
+            topic.add_subscription(subscriptions.EmailSubscription(address))
 
         notify_lambda = lambda_.Function(
             self,
@@ -208,9 +214,11 @@ class ContentSync(Construct):
                 "SNS_TOPIC_ARN": topic.topic_arn,
                 "BUCKET": input_assets_bucket.bucket_name,
                 "COLLECTOR_LOG_GROUP": collector_log_group.log_group_name,
+                "PROCESSED_FILES_TABLE": processed_files_table.table_name,
             },
         )
         topic.grant_publish(notify_lambda)
+        processed_files_table.grant_read_data(notify_lambda)
         notify_lambda.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["s3:GetObject"],

@@ -87,7 +87,9 @@ class RagBackend(Construct):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             removal_policy=RemovalPolicy.DESTROY,
         )
-        
+        # Read by the weekly conversation export construct
+        self.conversation_table = conversation_table
+
         #################################################################################
         # CDK FOR THE LAMBDA WHICH SERVES THE API
         #################################################################################

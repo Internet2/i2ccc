@@ -168,6 +168,43 @@ Use the production frontend — the CloudFront or custom-domain URL.
 
 Response quality improves as more documents finish ingestion; partial answers are expected during the initial run.
 
+### Weekly conversation export
+
+Every Monday at 8:00 AM Eastern, an Excel workbook of conversation history is emailed as a download link to whoever is subscribed to the export topic. It is built for product staff who need to read what people asked ABE — and what they rated poorly — without AWS access.
+
+Name the recipients in `config.yaml` — one address or a list — and have each of them confirm the SNS subscription email AWS sends after the first deploy. Leaving this unset means nobody is emailed; it does not fall back to `notification_email`, so conversation data only reaches addresses named for this export:
+
+```yaml
+export_notification_email:
+  - pm@example.edu
+  - programme-lead@example.edu
+export_url_expiry_days: 7    # how long the download link stays valid (max 7)
+export_retention_days: 90    # optional; unset keeps every export indefinitely
+```
+
+Each run exports only messages newer than the previous run, tracked by a watermark in SSM Parameter Store (`/abe/conversation-export/last-exported-timestamp`). With no watermark stored, the whole history is exported — so the first email carries a noticeably larger file than later ones.
+
+The workbook has three sheets:
+
+| Sheet | Contents |
+| --- | --- |
+| `conversations` | Every message in this export, one per row, with every stored attribute as its own column. Filters are pre-enabled. |
+| `all_feedback` | Every rated message ever, repeated in full on every run. Ratings are written onto the original message row without changing its timestamp, so they fall outside the weekly window and would otherwise be missed. |
+| `run_info` | What the export covered, for the record. |
+
+The email states that the download link expires in 7 days, and carries two plain S3 console links as the fallback — one to that week's file, one to every export kept in the bucket. Exports are kept indefinitely by default, so those links never go stale, but the reader must be signed in to AWS with read access to the export bucket — grant the recipient console access if they will rely on them.
+
+Note that a presigned URL is signed with the Lambda's temporary credentials, so it can stop working before the stated 7 days if those credentials rotate. The console links are the answer to that; a reliably week-long link would need a dedicated long-lived signing credential or a redirect endpoint in front of the object.
+
+To run one outside the schedule, invoke the function with an empty payload:
+
+```bash
+aws lambda invoke --function-name abe-conversation-export \
+    --cli-binary-format raw-in-base64-out --payload '{}' /dev/stdout
+```
+
+Send `{"full": true, "advance_watermark": false}` instead to re-export the whole history without disturbing the weekly window.
+
 ## Optional Features
 
 These are gated by `config.yaml` flags and are inactive by default.

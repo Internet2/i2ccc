@@ -268,8 +268,9 @@ if __name__ == "__main__":
 
     except Exception as e:
         logger.error(f"Error processing step function input: {e}")
+        sys.exit(1)
 
     result = main(media_file_uri, transcript_uri, metadata)
     print(result)
 
-    sys.exit(0)
+    sys.exit(0 if result else 1)

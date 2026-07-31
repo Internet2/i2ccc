@@ -39,6 +39,17 @@ RagChatbotStack(
     frontend_certificate_arn=config.get("frontend_certificate_arn"),
     # Email address for content-sync run notifications (optional)
     notification_email=config.get("notification_email"),
+    # Weekly conversation export recipients (optional; one address or a list).
+    # Deliberately no fallback to notification_email - conversation data goes
+    # only to addresses named for this export.
+    export_notification_email=config.get("export_notification_email"),
+    export_url_expiry_days=int(config.get("export_url_expiry_days", 7)),
+    # Unset keeps every export indefinitely
+    export_retention_days=(
+        int(config["export_retention_days"])
+        if config.get("export_retention_days")
+        else None
+    ),
     # Cognito SAML auth — only active when enable_saml_auth: true in config.yaml
     **({
         "cognito_domain_prefix": config.get("cognito_domain_prefix"),

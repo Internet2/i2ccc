@@ -7,6 +7,7 @@ from constructs import Construct
 from .auth import CognitoSamlAuth
 from .backend import RagBackend
 from .content_sync import ContentSync
+from .conversation_export import ConversationExport
 from .frontend import RagFrontend
 from .ingest import RagIngest
 from .waf import Waf
@@ -48,8 +49,13 @@ class RagChatbotStack(Stack):
         # Custom domain for CloudFront (optional)
         frontend_domain_name: str = None,
         frontend_certificate_arn: str = None,
-        # Email for content-sync run notifications (optional)
-        notification_email: str = None,
+        # Email(s) for content-sync run notifications - one address or a list
+        notification_email: str | list[str] = None,
+        # Email(s) for the weekly conversation export - one address or a list
+        export_notification_email: str | list[str] = None,
+        export_url_expiry_days: int = 7,
+        # None keeps every export indefinitely
+        export_retention_days: int = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -135,5 +141,17 @@ class RagChatbotStack(Stack):
             vpc=ingest_stack.vpc,
             input_assets_bucket=ingest_stack.input_assets_bucket,
             ingestion_state_machine=ingest_stack.state_machine,
+            processed_files_table=ingest_stack.processed_files_table,
             notification_email=notification_email,
+        )
+
+        # Weekly Excel export of conversations, emailed as a download link so
+        # non-engineers can review questions and feedback without AWS access
+        ConversationExport(
+            self,
+            "ConversationExport",
+            conversation_table=rag_api_stack.conversation_table,
+            export_email=export_notification_email,
+            url_expiry_days=export_url_expiry_days,
+            retain_exports_days=export_retention_days,
         )
