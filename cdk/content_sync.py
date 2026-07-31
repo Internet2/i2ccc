@@ -196,12 +196,11 @@ class ContentSync(Construct):
             # subject line is set per-publish by the notify lambda
             display_name="ABE content ingestion",
         )
-        notification_emails = (
-            [notification_email]
-            if isinstance(notification_email, str)
-            else notification_email or []
-        )
-        for address in notification_emails:
+        # config.yaml may give one address or a list of them. Each subscription
+        # has to be confirmed individually from its own inbox.
+        if isinstance(notification_email, str):
+            notification_email = [notification_email]
+        for address in dict.fromkeys(notification_email or []):
             topic.add_subscription(subscriptions.EmailSubscription(address))
 
         notify_lambda = lambda_.Function(
