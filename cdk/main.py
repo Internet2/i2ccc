@@ -48,8 +48,8 @@ class RagChatbotStack(Stack):
         # Custom domain for CloudFront (optional)
         frontend_domain_name: str = None,
         frontend_certificate_arn: str = None,
-        # Email for content-sync run notifications (optional)
-        notification_email: str = None,
+        # Email(s) for content-sync run notifications (optional)
+        notification_email: str | list[str] = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -135,5 +135,6 @@ class RagChatbotStack(Stack):
             vpc=ingest_stack.vpc,
             input_assets_bucket=ingest_stack.input_assets_bucket,
             ingestion_state_machine=ingest_stack.state_machine,
+            processed_files_table=ingest_stack.processed_files_table,
             notification_email=notification_email,
         )

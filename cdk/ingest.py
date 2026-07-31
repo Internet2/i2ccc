@@ -661,6 +661,23 @@ class RagIngest(Construct):
             security_groups=[security_group],
             result_path="$.audio_result",
         )
+        process_audio.add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(30),
+            max_attempts=2,
+            backoff_rate=2.0,
+        )
+        # Infra-level failure (e.g. image pull timeout) after retries are exhausted -
+        # unlike the Transcribe-failure quarantine branch above, this isn't a bad
+        # input file, so leave it in place for next run rather than quarantining it.
+        audio_task_failed = sfn.Succeed(
+            self,
+            "AudioTaskFailedNonFatal",
+            comment="Audio ingestion container failed after retries; file left for next run",
+        )
+        process_audio.add_catch(
+            audio_task_failed, errors=["States.ALL"], result_path="$.task_error"
+        )
 
         delete_transcription_job = tasks.CallAwsService(
             self,
@@ -824,6 +841,20 @@ class RagIngest(Construct):
             security_groups=[security_group],
             result_path="$.video_result",
         )
+        process_video.add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(30),
+            max_attempts=2,
+            backoff_rate=2.0,
+        )
+        video_task_failed = sfn.Succeed(
+            self,
+            "VideoTaskFailedNonFatal",
+            comment="Video ingestion container failed after retries; file left for next run",
+        )
+        process_video.add_catch(
+            video_task_failed, errors=["States.ALL"], result_path="$.task_error"
+        )
 
         # Separate task for processing video chunks (same task definition, different state)
         process_video_chunk = tasks.EcsRunTask(
@@ -849,6 +880,20 @@ class RagIngest(Construct):
             ),
             security_groups=[security_group],
             result_path="$.video_result",
+        )
+        process_video_chunk.add_retry(
+            errors=["States.TaskFailed"],
+            interval=Duration.seconds(30),
+            max_attempts=2,
+            backoff_rate=2.0,
+        )
+        video_chunk_task_failed = sfn.Succeed(
+            self,
+            "VideoChunkTaskFailedNonFatal",
+            comment="Video chunk ingestion container failed after retries; chunk left for next run",
+        )
+        process_video_chunk.add_catch(
+            video_chunk_task_failed, errors=["States.ALL"], result_path="$.task_error"
         )
 
         # PDF branch
@@ -1083,10 +1128,12 @@ class RagIngest(Construct):
         self.processed_files_table_name = processed_files_table.table_name
 
         # Exposed for the ContentSync construct, which reuses this
-        # infrastructure for the collector job
+        # infrastructure for the collector job and reads ingestion status
+        # for the notify lambda's per-file report
         self.cluster = cluster
         self.vpc = vpc
         self.input_assets_bucket = input_assets_bucket
+        self.processed_files_table = processed_files_table
         self.state_machine = state_machine
 
         CfnOutput(

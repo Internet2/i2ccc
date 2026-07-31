@@ -145,8 +145,9 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"Error processing step function input: {e}")
+        sys.exit(1)
 
     result = main(transcript_uri, media_file_uri, job_name, metadata)
     print(result)
 
-    sys.exit(0)
+    sys.exit(0 if result.get("statusCode") == 200 else 1)

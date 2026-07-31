@@ -6,6 +6,21 @@ run_summary.json from S3 (if it exists) and publishes a plain-text email built
 in two tiers: a plain-language summary for non-technical readers, then the raw
 per-stage counters and AWS console links under a TECHNICAL DETAILS divider.
 
+The reader-facing tier answers exactly one question - of the files this run
+tried to add, which made it into ABE and which did not, by name. Routine skips
+(file types ABE cannot read, audio dropped in favor of the session video,
+Drive folder links handled by the Drive stage) are known and expected, so they
+stay in the per-stage counters below the divider instead of being called out
+where they read as failures.
+
+The collector's run_summary only says a file was uploaded to S3 - it says
+nothing about whether the separate ingestion state machine then actually
+processed it, so a failed ingestion run does not mean every file that run
+collected is unsearchable (one branch, e.g. audio, can fail while others
+succeed). This lambda checks the ingestion pipeline's own processed-files
+table for each uploaded key to report what is actually searchable, rather
+than assuming a failed run means nothing made it in.
+
 SNS email is plain text only - no HTML - and subjects must be ASCII and under
 100 characters, so all layout here is done with spaces.
 """
@@ -18,11 +33,15 @@ import boto3
 
 s3 = boto3.client("s3")
 sns = boto3.client("sns")
+dynamodb = boto3.resource("dynamodb")
 
 SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
 BUCKET = os.environ["BUCKET"]
 COLLECTOR_LOG_GROUP = os.environ["COLLECTOR_LOG_GROUP"]
 REGION = os.environ["AWS_REGION"]
+PROCESSED_FILES_TABLE = os.environ["PROCESSED_FILES_TABLE"]
+
+processed_files_table = dynamodb.Table(PROCESSED_FILES_TABLE)
 
 RULE = "-" * 68
 MAX_LISTED_SESSIONS = 60
@@ -247,33 +266,51 @@ def _uploaded_keys(stages):
     return keys
 
 
+def _searchable_keys(keys):
+    """Ground truth for which of this run's uploaded S3 keys are actually
+    searchable in ABE right now, per the ingestion pipeline's processed-files
+    table - the only way to tell a file that finished ingestion apart from
+    one still stuck (or lost) after an ingestion failure.
+    """
+    searchable = set()
+    for key in keys:
+        s3_uri = f"s3://{BUCKET}/{key}"
+        try:
+            response = processed_files_table.get_item(Key={"s3_uri": s3_uri})
+        except Exception as e:
+            # Can't confirm either way - report it as not-yet-searchable
+            # rather than crashing the notification
+            print(f"Could not check processed status for {s3_uri}: {e}")
+            continue
+        if "Item" in response:
+            searchable.add(key)
+    return searchable
+
+
 def _figure(label: str, value, note: str = "") -> str:
     row = f"  {label.ljust(22)}{str(value).rjust(6)}"
     return f"{row}   {note}".rstrip()
 
 
-def _headline(status: str, failed_stage, added: int, errors: int) -> str:
-    if status == "SUCCEEDED":
-        opening = (
-            f"Completed with {errors} error{'' if errors == 1 else 's'}"
-            if errors
-            else "Completed successfully"
-        )
-        if added:
-            item = "item" if added == 1 else "items"
-            return f"{opening} - {added} new {item} added to ABE."
-        return f"{opening} - no new content found this time."
-    stage = FAILED_STAGE_LABELS.get(failed_stage, failed_stage or "the pipeline")
-    return f"FAILED during {stage}."
+def _headline(status: str, failed_stage, attempted: int, added: int) -> str:
+    if status != "SUCCEEDED":
+        stage = FAILED_STAGE_LABELS.get(failed_stage, failed_stage or "the pipeline")
+        return f"FAILED during {stage}."
+    if not attempted:
+        return "Completed successfully - no new content found this time."
+    if added == attempted:
+        item = "file" if added == 1 else "files"
+        return f"Completed successfully - {added} new {item} added to ABE."
+    return f"Completed with problems - {added} of {attempted} new files added to ABE."
 
 
 def _what_this_means(failed_stage):
     lines = ["WHAT THIS MEANS"]
     if failed_stage == "ingestion":
         lines += [
-            "  New files were collected but could not be processed, so they are",
-            "  not searchable in ABE yet. Everything already in ABE is unaffected",
-            "  and the assistant is working normally.",
+            "  Some newly collected files may not be searchable in ABE yet - see",
+            "  the breakdown below for exactly which ones made it in. Everything",
+            "  already in ABE is unaffected and the assistant is working normally.",
         ]
     else:
         lines += [
@@ -290,24 +327,34 @@ def _what_this_means(failed_stage):
     return lines
 
 
-def _whats_new_lines(sessions, added: int, status: str):
-    succeeded = status == "SUCCEEDED"
-    lines = ["WHAT'S NEW IN ABE" if succeeded else "WHAT WAS COLLECTED"]
-    if not sessions:
-        if succeeded:
-            lines.append(
-                "  Nothing new - every source we check was already up to date in ABE."
-            )
-        else:
-            lines.append("  Nothing was added to ABE in this run.")
-        lines.append("")
-        return lines
-
-    session_word = "session" if len(sessions) == 1 else "sessions"
-    file_word = "file" if added == 1 else "files"
-    state = "now searchable in ABE" if succeeded else "not searchable in ABE yet"
-    lines.append(f"  {len(sessions)} {session_word}, {added} {file_word} - {state}:")
+def _scoreboard_lines(stages, summary, attempted, added, not_added):
+    """The one block that answers: how many did we try, and how many made it?"""
+    lines = ["THIS RUN", _figure("Tried to add", attempted, "(new files found)")]
+    lines.append(_figure("Added to ABE", added, "(searchable now)" if added else ""))
+    lines.append(
+        _figure(
+            "Not added",
+            not_added,
+            "(see breakdown below)" if not_added else "(none)",
+        )
+    )
+    lines.append(
+        _figure(
+            "Already in ABE",
+            _total(stages, "already_in_s3"),
+            "(unchanged since the last run)",
+        )
+    )
+    if summary and summary.get("duration_seconds") is not None:
+        lines.append(
+            _figure("Collection time", _human_duration(summary["duration_seconds"]))
+        )
     lines.append("")
+    return lines
+
+
+def _session_lines(sessions):
+    lines = []
     for title, parts in sessions[:MAX_LISTED_SESSIONS]:
         lines.append(f"  - {title}  ({', '.join(parts)})")
     if len(sessions) > MAX_LISTED_SESSIONS:
@@ -315,28 +362,37 @@ def _whats_new_lines(sessions, added: int, status: str):
             f"  ... and {len(sessions) - MAX_LISTED_SESSIONS} more "
             "(full list in the run summary linked below)"
         )
+    return lines
+
+
+def _file_word(count: int) -> str:
+    return "file" if count == 1 else "files"
+
+
+def _added_lines(sessions, added: int, attempted: int):
+    lines = [f"ADDED TO ABE - searchable now  ({added} {_file_word(added)})"]
+    if sessions:
+        lines += _session_lines(sessions)
+    elif attempted:
+        lines.append("  - none this run - see below for what happened to the files collected")
+    else:
+        lines.append("  - none - every source we check was already up to date")
     lines.append("")
     return lines
 
 
-def _big_picture_lines(stages, added: int, summary, status: str):
-    already = _total(stages, "already_in_s3")
-    skipped = _total(stages, "unsupported_skipped", "mp4_dominance_skipped")
-    errors = _total(stages, "failed")
-    added_label = (
-        "Newly added to ABE" if status == "SUCCEEDED" else "Collected this run"
-    )
-    lines = [
-        "THE BIG PICTURE",
-        _figure(added_label, added),
-        _figure("Already in ABE", already, "(unchanged since the last run)"),
-        _figure("Skipped", skipped, "(expected - see below)" if skipped else ""),
-        _figure("Errors", errors, "" if errors else "(none)"),
-    ]
-    if summary and summary.get("duration_seconds") is not None:
+def _not_added_lines(sessions, not_added: int, collect_failures: int):
+    """Name what did not make it, whenever the pipeline can tell us the names."""
+    if not not_added:
+        return []
+    lines = [f"NOT ADDED - not searchable yet  ({not_added} {_file_word(not_added)})"]
+    lines += _session_lines(sessions)
+    if collect_failures:
         lines.append(
-            _figure("Collection time", _human_duration(summary["duration_seconds"]))
+            f"  - {collect_failures} {_file_word(collect_failures)} could not be "
+            "collected from the source"
         )
+        lines.append("    (no file names available - see technical details)")
     lines.append("")
     return lines
 
@@ -351,32 +407,6 @@ def _sources_lines(stages):
         detail = f"{str(new).rjust(4)} new, {str(already).rjust(4)} already in ABE"
         note = "" if stage.get("status") == "succeeded" else "  <- see details below"
         lines.append(f"  {label.ljust(24)}{detail}{note}")
-    lines.append("")
-    return lines
-
-
-def _skip_lines(stages):
-    unsupported = _total(stages, "unsupported_skipped")
-    dominated = _total(stages, "mp4_dominance_skipped")
-    deferred = _total(stages, "drive_folders_deferred")
-    if not (unsupported or dominated or deferred):
-        return []
-    lines = ["WHY SOME ITEMS WERE SKIPPED (all expected)"]
-    if unsupported:
-        lines += [
-            f"  {str(unsupported).rjust(4)}  file types ABE cannot read - images, spreadsheets,",
-            "        and links out to other websites",
-        ]
-    if dominated:
-        lines += [
-            f"  {str(dominated).rjust(4)}  audio and caption files skipped because the video of that",
-            "        same session was taken instead - nothing was lost",
-        ]
-    if deferred:
-        lines += [
-            f"  {str(deferred).rjust(4)}  Google Drive folder links - their contents are collected",
-            "        by the Google Drive step instead of one link at a time",
-        ]
     lines.append("")
     return lines
 
@@ -433,8 +463,15 @@ def _technical_lines(summary, run_id, execution_arn, failed_stage, error):
     return lines
 
 
-def build_email(event, summary):
-    """Compose the (subject, body) pair. Kept separate from I/O for testing."""
+def build_email(event, summary, searchable_keys=frozenset()):
+    """Compose the (subject, body) pair. Kept separate from I/O for testing.
+
+    searchable_keys is the ground-truth subset of this run's uploaded S3 keys
+    that the caller has confirmed are actually processed - see
+    _searchable_keys(). It is not inferred from the pipeline's status, because
+    a failed ingestion run does not mean every file that run collected is
+    unsearchable (one branch, e.g. audio, can fail while others succeed).
+    """
     status = event["status"]  # "SUCCEEDED" or "FAILED"
     run_id = event["run_id"]
     execution_arn = event["execution_arn"]
@@ -442,8 +479,19 @@ def build_email(event, summary):
     error = event.get("error")
 
     stages = (summary or {}).get("stages") or {}
-    sessions = _group_sessions(_uploaded_keys(stages))
-    added = _total(stages, "uploaded")
+    uploaded_keys = _uploaded_keys(stages)
+    added_keys = [k for k in uploaded_keys if k in searchable_keys]
+    not_added_keys = [k for k in uploaded_keys if k not in searchable_keys]
+    added_sessions = _group_sessions(added_keys)
+    not_added_sessions = _group_sessions(not_added_keys)
+
+    # Everything the run tried to put into ABE: files it collected, plus files it
+    # tried to collect and could not.
+    collected = _total(stages, "uploaded")
+    collect_failures = _total(stages, "failed")
+    attempted = collected + collect_failures
+    added = len(added_keys)
+    not_added = len(not_added_keys) + collect_failures
 
     run_dt = _run_datetime(run_id)
     when = (
@@ -456,26 +504,30 @@ def build_email(event, summary):
         "ABE CONTENT INGESTION",
         when,
         "",
-        _headline(status, failed_stage, added, _total(stages, "failed")),
+        _headline(status, failed_stage, attempted, added),
         "",
     ]
     if status != "SUCCEEDED":
         lines += _what_this_means(failed_stage)
-    lines += _whats_new_lines(sessions, added, status)
     if stages:
-        lines += _big_picture_lines(stages, added, summary, status)
+        lines += _scoreboard_lines(stages, summary, attempted, added, not_added)
+        lines += _added_lines(added_sessions, added, attempted)
+        lines += _not_added_lines(not_added_sessions, not_added, collect_failures)
         lines += _sources_lines(stages)
-        lines += _skip_lines(stages)
+    else:
+        lines += ["Nothing was added to ABE in this run.", ""]
     lines += _technical_lines(summary, run_id, execution_arn, failed_stage, error)
 
     if status == "SUCCEEDED":
-        if added:
-            item = "item" if added == 1 else "items"
+        if not attempted:
+            subject = "ABE content ingestion: no new content"
+        elif added == attempted:
+            item = "file" if added == 1 else "files"
             subject = f"ABE content ingestion: {added} new {item} added"
         else:
-            subject = "ABE content ingestion: no new content"
-    elif failed_stage == "ingestion":
-        subject = "ABE content ingestion FAILED - new content not searchable yet"
+            subject = f"ABE content ingestion: {added} of {attempted} new files added"
+    elif attempted:
+        subject = f"ABE content ingestion FAILED - {added} of {attempted} new files added"
     else:
         subject = "ABE content ingestion FAILED - no new content added"
     if run_dt:
@@ -488,6 +540,8 @@ def build_email(event, summary):
 
 def handler(event, context):
     summary = _load_run_summary(event["run_id"])
-    subject, body = build_email(event, summary)
+    stages = (summary or {}).get("stages") or {}
+    searchable_keys = _searchable_keys(_uploaded_keys(stages))
+    subject, body = build_email(event, summary, searchable_keys)
     sns.publish(TopicArn=SNS_TOPIC_ARN, Subject=subject, Message=body)
     return {"published": True, "status": event["status"]}
