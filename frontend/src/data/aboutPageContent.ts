@@ -81,10 +81,10 @@ export const aboutPageContent = {
         email: "bflynn@internet2.edu"
       },
       chatbotFeedback: {
-        title: "Report a Bug or Request a Feature",
-        description: "Open an issue on GitHub for bugs, suggestions, or improvements to this chatbot interface.",
-        url: "https://github.com/Internet2/i2ccc/issues",
-        linkText: "github.com/Internet2/i2ccc/issues"
+        title: "Report a Bug, Request a Feature, or Give Feedback",
+        description: "All submissions go directly to our team for review.",
+        url: "https://forms.monday.com/forms/5fa26503fe3ec345a23ef68853d67864?r=use1",
+        linkText: "Open the support form"
       }
     }
   }
