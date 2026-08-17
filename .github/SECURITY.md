@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in this project, please report it responsibly by emailing:
 
-**tmanik@internet2.edu**
+**help@internet2.edu**
 
 Please do **not** open a public GitHub issue for security vulnerabilities.
 
@@ -19,7 +19,7 @@ Please do **not** open a public GitHub issue for security vulnerabilities.
 
 We follow a coordinated (responsible) disclosure process:
 
-1. **Report** — Send your findings to tmanik@internet2.edu.
+1. **Report** — Send your findings to help@internet2.edu.
 2. **Acknowledgement** — We will acknowledge receipt of your report within 5 business days.
 3. **Investigation** — We will investigate the issue and keep you informed of our progress.
 4. **Fix** — We will work to remediate confirmed vulnerabilities in a timely manner.
@@ -33,4 +33,4 @@ We only provide security fixes for the latest version of this project.
 
 ## Contact
 
-For non-security-related issues, please open a [GitHub issue](https://github.internet2.edu/netplus/cicp-chatbot/issues).
+For non-security-related issues, please open a [GitHub issue](https://github.com/Internet2/i2ccc/issues).
