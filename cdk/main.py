@@ -10,6 +10,7 @@ from .content_sync import ContentSync
 from .conversation_export import ConversationExport
 from .frontend import RagFrontend
 from .ingest import RagIngest
+from .model_lifecycle import ModelLifecycleMonitor
 from .waf import Waf
 
 
@@ -56,6 +57,8 @@ class RagChatbotStack(Stack):
         export_url_expiry_days: int = 7,
         # None keeps every export indefinitely
         export_retention_days: int = None,
+        # Email(s) for Bedrock model lifecycle alerts - one address or a list
+        model_lifecycle_notification_email: str | list[str] = None,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -154,4 +157,17 @@ class RagChatbotStack(Stack):
             export_email=export_notification_email,
             url_expiry_days=export_url_expiry_days,
             retain_exports_days=export_retention_days,
+        )
+
+        # Weekly check that every Bedrock model in config.yaml is still ACTIVE,
+        # since AWS Health's deprecation notices need a support plan we don't have
+        ModelLifecycleMonitor(
+            self,
+            "ModelLifecycleMonitor",
+            chat_model=chat_model,
+            embedding_model=embedding_model,
+            video_text_model_id=video_text_model_id,
+            classifier_model=classifier_model,
+            document_filter_model=document_filter_model,
+            notification_email=model_lifecycle_notification_email,
         )

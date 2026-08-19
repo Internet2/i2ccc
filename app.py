@@ -50,6 +50,8 @@ RagChatbotStack(
         if config.get("export_retention_days")
         else None
     ),
+    # Bedrock model lifecycle alert recipients (optional; one address or a list)
+    model_lifecycle_notification_email=config.get("model_lifecycle_notification_email"),
     # Cognito SAML auth — only active when enable_saml_auth: true in config.yaml
     **({
         "cognito_domain_prefix": config.get("cognito_domain_prefix"),
