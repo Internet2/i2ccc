@@ -32,6 +32,7 @@ sns = boto3.client("sns")
 
 SNS_TOPIC_ARN = os.environ["SNS_TOPIC_ARN"]
 STATUS_PARAM = os.environ["STATUS_PARAM"]
+REGION = os.environ["AWS_REGION"]
 
 MODELS = {
     "chat": os.environ["CHAT_MODEL_ID"],
@@ -44,14 +45,24 @@ MODELS = {
 DOCS_URL = "https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html"
 
 
-def _resolve_foundation_model_ids(identifier):
+def _resolve_foundation_model_id(identifier):
     """Bare model ids and foundation-model ARNs go straight through;
-    inference-profile ARNs resolve to their underlying foundation model
-    ARNs first, since GetFoundationModel rejects inference-profile ARNs."""
+    inference-profile ARNs resolve to an underlying foundation model ARN
+    first, since GetFoundationModel rejects inference-profile ARNs.
+
+    A profile's models[] list mixes a region-less ARN (arn:...bedrock:::...)
+    with one qualified for each supported region - GetFoundationModel
+    rejects an ARN whose region doesn't match the client's, so the
+    region-qualified entry has to be picked explicitly rather than just
+    taking models[0]."""
     if ":inference-profile/" not in identifier:
-        return [identifier]
+        return identifier
     profile = bedrock.get_inference_profile(inferenceProfileIdentifier=identifier)
-    return [model["modelArn"] for model in profile["models"]]
+    model_arns = [model["modelArn"] for model in profile["models"]]
+    for arn in model_arns:
+        if f":{REGION}::" in arn:
+            return arn
+    return model_arns[0]
 
 
 def _lifecycle_status(model_identifier):
@@ -64,10 +75,8 @@ def _lifecycle_status(model_identifier):
 def check_all():
     statuses = {}
     for key, identifier in MODELS.items():
-        foundation_ids = _resolve_foundation_model_ids(identifier)
-        # A profile's regional variants are the same underlying model, so
-        # the first one is representative
-        statuses[key] = _lifecycle_status(foundation_ids[0])
+        foundation_id = _resolve_foundation_model_id(identifier)
+        statuses[key] = _lifecycle_status(foundation_id)
     return statuses
 
 
@@ -93,14 +102,43 @@ def save_statuses(statuses):
     )
 
 
+# What each status means for someone deciding whether action is needed, and
+# whether config.yaml has to change before an exact date even shows up.
+# LEGACY's minimum is documented by AWS (see DOCS_URL) - not observed via
+# API - so it reads as a lower bound, not a guess.
+_STATUS_MEANINGS = {
+    "LEGACY": (
+        "AWS keeps a model in LEGACY for at least 6 months before fully "
+        "retiring it (EOL), but the exact retirement date is only on the "
+        "docs page below, not in the API. Plan to move this config.yaml "
+        "key to a newer model before then."
+    ),
+    "EOL": (
+        "This model has reached end-of-life. Bedrock may already be "
+        "rejecting requests to it - config.yaml needs a replacement model "
+        "for this key now, not just eventually."
+    ),
+    "ACTIVE": (
+        "This model is back on standard support - no action needed."
+    ),
+}
+_DEFAULT_MEANING = (
+    "Bedrock reported this status without a recognized meaning here - "
+    "check the docs page below."
+)
+
+
 def _publish_change(config_key, model_id, old_status, new_status):
     subject = f"ABE model lifecycle: {config_key} is now {new_status}"[:100]
+    meaning = _STATUS_MEANINGS.get(new_status, _DEFAULT_MEANING)
     body = (
+        f"You're getting this email because the \"{config_key}\" model ABE "
+        f"uses just changed Bedrock lifecycle status: {old_status} -> {new_status}.\n\n"
+        f"{meaning}\n\n"
         f"config.yaml model key: {config_key}\n"
-        f"Model: {model_id}\n"
-        f"Status: {old_status} -> {new_status}\n\n"
-        "The Bedrock API does not report the exact Legacy/EOL calendar "
-        "dates - check the docs page for those:\n"
+        f"Model: {model_id}\n\n"
+        "The Bedrock API does not report exact Legacy/EOL calendar dates - "
+        "check the docs page for those:\n"
         f"{DOCS_URL}"
     )
     sns.publish(TopicArn=SNS_TOPIC_ARN, Subject=subject, Message=body)
