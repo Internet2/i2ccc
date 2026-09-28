@@ -25,6 +25,7 @@ export const exampleQuestions: ExampleQuestion[] = [
   { id: '15', question: "How do institutions manage multi-cloud environments?", category: "Multi-Cloud" },
   { id: '16', question: "What are the trade-offs between AWS, GCP, and Azure?", category: "Multi-Cloud" },
   { id: '17', question: "Do I have to set up a cloud networking architecture for each platform or is there a single strategy to rule them all?", category: "Multi-Cloud" },
+  { id: '36', question: "What cloud alternatives are there to VMWare?", category: "Multi-Cloud" },
 
   // FinOps
   { id: '18', question: "How do I convince my leadership of the importance of FinOps practices?", category: "FinOps" },
