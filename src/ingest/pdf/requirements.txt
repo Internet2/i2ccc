@@ -6,3 +6,4 @@ opensearch_py==2.6.0
 pdfplumber==0.11.0
 Requests==2.32.3
 requests_aws4auth==1.2.3
+Pillow==12.2.0
